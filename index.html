@@ -68,7 +68,7 @@
             </div>
 
             <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                <h2 class="text-lg font-bold mb-3 text-gray-800 border-b pb-2">2. Tingimento (Cores Base)</h2>
+                <h2 class="text-lg font-bold mb-3 text-gray-800 border-b pb-2">2. Cores Extras</h2>
                 <div class="space-y-4">
                     <div class="flex justify-between items-center">
                         <label class="text-sm font-medium text-gray-700">Paredes</label>
@@ -121,7 +121,8 @@
             init: function() {
                 this.configurarCena();
                 this.carregarTexturasServidor();
-                // A simulação aguarda as texturas carregarem para rodar corretamente
+                
+                // Aguardamos as texturas carregarem antes de construir a estrutura pela primeira vez
                 setTimeout(() => {
                     this.atualizarSimulacao();
                     this.loopAnimacao();
@@ -131,9 +132,11 @@
 
             carregarTexturasServidor: function() {
                 const loader = new THREE.TextureLoader();
-                const path = './texturas/'; // Certifique-se de que a pasta no GitHub se chama "texturas" tudo minúsculo
+                
+                // === A MÁGICA ESTÁ AQUI: CAMINHO ABSOLUTO ===
+                // Agora é impossível o navegador se perder, não importa como você acesse o site.
+                const path = 'https://BraulioBastosBatista.github.io/simulador-galpao/texturas/';
 
-                // Função mapeadora precisa
                 const carregarMaterial = (nomeMaterial, imgColor, imgNormal, imgRoughness, extras = {}) => {
                     const map = loader.load(path + imgColor);
                     const normal = loader.load(path + imgNormal);
@@ -154,23 +157,20 @@
                     });
                 };
 
-                // HDRI Céu (Usando nome sem acento por segurança)
+                // HDRI Céu
                 loader.load(path + 'ceu.jpg', (texture) => {
                     texture.mapping = THREE.EquirectangularReflectionMapping;
                     texture.colorSpace = THREE.SRGBColorSpace;
                     this.scene.background = texture;
                     this.scene.environment = texture;
-                }, undefined, (e) => console.log('Aviso: Imagem do céu (ceu.jpg) não encontrada ou ainda com acento.'));
+                });
 
-                // Mapeamento EXATO conforme os arquivos no seu print:
+                // Materiais exatos da sua pasta texturas/
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
-                carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
+                this.materiais.pilar = this.materiais.parede.clone(); // O Pilar usa a textura da Parede
+                
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.4, envMapIntensity: 0.5 });
-                
-                // Para o telhado, seu print mostra os arquivos metal_color etc (tudo minúsculo)
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.3, envMapIntensity: 0.5 });
-                
-                // Para o chão (pátio), vamos usar o asfalto conforme seu print
                 carregarMaterial('patio', 'Asfalto_Color.jpg', 'Asfalto_Normal.jpg', 'Asfalto_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.05, metalness: 0.95, envMapIntensity: 1.0 });
@@ -246,7 +246,6 @@
                 const profEstacionamento = 15;
                 const patioGeom = new THREE.PlaneGeometry(frente + 10, comprimento + profEstacionamento);
                 
-                // Escala de textura do asfalto
                 const clonePatioMat = this.aplicarEscalaMaterial(this.materiais.patio, (frente+10)/5, (comprimento+profEstacionamento)/5);
                 const patio = new THREE.Mesh(patioGeom, clonePatioMat);
                 patio.rotation.x = -Math.PI / 2;
@@ -264,7 +263,6 @@
                 const corPilar = document.getElementById('corPilar').value;
                 const corParede = document.getElementById('corParede').value;
                 
-                // Aplica cores base se o usuário tiver alterado e os materiais existirem
                 if(this.materiais.pilar) this.materiais.pilar.color.set(corPilar);
                 if(this.materiais.parede) this.materiais.parede.color.set(corParede);
 
