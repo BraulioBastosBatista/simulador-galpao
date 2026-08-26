@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Galpões 3D - PBR via Servidor</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { brand: { 50: '#f0f9ff', 600: '#3b82f6', 900: '#1e3a8a' } } } }
+        }
+    </script>
+    <style>
+        #canvas-container { width: 100%; height: 100%; min-height: 700px; cursor: grab; outline: none; }
+        #canvas-container:active { cursor: grabbing; }
+        input[type="color"] { appearance: none; -webkit-appearance: none; border: none; width: 2rem; height: 2rem; border-radius: 9999px; cursor: pointer; padding: 0; }
+        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+        input[type="color"]::-webkit-color-swatch { border: 2px solid #e5e7eb; border-radius: 9999px; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+
+    <header class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-brand-600 rounded flex items-center justify-center text-white font-bold text-xl">GE</div>
+                <h1 class="text-xl font-bold text-brand-900 tracking-tight">Galpões Engenharia</h1>
+            </div>
+            <button onclick="App.togglePortao()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all">
+                Abrir / Fechar Portão
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex flex-col lg:flex-row gap-8">
+        
+        <div class="w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto pr-2" style="max-height: 80vh;">
+            
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold mb-3 text-gray-800 border-b pb-2">1. Estrutura</h2>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">Frente (m)</label>
+                            <input type="number" id="frente" value="15" min="5" max="50" step="1" class="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-300 focus:ring-2 outline-none text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 mb-1">Comprimento (m)</label>
+                            <input type="number" id="comprimento" value="25" min="10" max="100" step="1" class="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-300 focus:ring-2 outline-none text-sm">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Portão</label>
+                        <select id="tipoPortao" onchange="App.atualizarSimulacao()" class="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-300 text-sm outline-none">
+                            <option value="correr">Portão de Correr Lateral</option>
+                            <option value="enrolar">Portão de Enrolar</option>
+                            <option value="duas_folhas">Portão 2 Folhas Industrial</option>
+                        </select>
+                    </div>
+                    <button onclick="App.atualizarSimulacao()" class="w-full bg-brand-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-sm mt-1 text-sm">
+                        Atualizar Geometria
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                <h2 class="text-lg font-bold mb-3 text-gray-800 border-b pb-2">2. Tingimento (Cores Base)</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm font-medium text-gray-700">Paredes</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="setCor('corParede', '#f2f0eb')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #f2f0eb;"></button>
+                            <button onclick="setCor('corParede', '#d4d4d8')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #d4d4d8;"></button>
+                            <input type="color" id="corParede" value="#f2f0eb" oninput="App.atualizarCoresTempoReal()">
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-sm font-medium text-gray-700">Pilares</label>
+                        <div class="flex items-center gap-2">
+                            <button onclick="setCor('corPilar', '#e3e1db')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #e3e1db;"></button>
+                            <button onclick="setCor('corPilar', '#9ca3af')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #9ca3af;"></button>
+                            <input type="color" id="corPilar" value="#9ca3af" oninput="App.atualizarCoresTempoReal()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-brand-900 text-white p-5 rounded-xl shadow-lg">
+                <h3 class="text-blue-200 text-xs font-semibold uppercase tracking-wider mb-2">Orçamento Total</h3>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <p class="text-xs text-blue-100 mb-1">Área Total</p>
+                        <p class="text-xl font-bold"><span id="area-resultado">375</span><span class="text-xs text-blue-200 ml-1">m²</span></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-blue-100 mb-1">Custo Estimado</p>
+                        <p class="text-xl font-extrabold text-green-400" id="custo-resultado">R$ 0,00</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+            <div id="canvas-container" class="w-full h-full"></div>
+        </div>
+
+    </main>
+
+    <script>
+        const App = {
+            CUSTO_BASE_M2: 850.00, ALTURA_PE_DIREITO: 6, ALTURA_PLACA: 1.2,
+            
+            scene: null, camera: null, renderer: null, controls: null,
+            galpaoGroup: null, ambienteGroup: null,
+            materiais: {}, portaoAberto: false, elementosAnimados: [],
+
+            init: function() {
+                this.configurarCena();
+                this.carregarTexturasServidor();
+                // A simulação aguarda as texturas carregarem para rodar corretamente
+                setTimeout(() => {
+                    this.atualizarSimulacao();
+                    this.loopAnimacao();
+                }, 500);
+                window.addEventListener('resize', () => this.onWindowResize());
+            },
+
+            carregarTexturasServidor: function() {
+                const loader = new THREE.TextureLoader();
+                const path = './texturas/'; // Certifique-se de que a pasta no GitHub se chama "texturas" tudo minúsculo
+
+                // Função mapeadora precisa
+                const carregarMaterial = (nomeMaterial, imgColor, imgNormal, imgRoughness, extras = {}) => {
+                    const map = loader.load(path + imgColor);
+                    const normal = loader.load(path + imgNormal);
+                    const rough = loader.load(path + imgRoughness);
+
+                    map.colorSpace = THREE.SRGBColorSpace;
+
+                    [map, normal, rough].forEach(tex => {
+                        tex.wrapS = THREE.RepeatWrapping;
+                        tex.wrapT = THREE.RepeatWrapping;
+                        tex.anisotropy = 16;
+                    });
+
+                    this.materiais[nomeMaterial] = new THREE.MeshStandardMaterial({
+                        map: map, normalMap: normal, roughnessMap: rough,
+                        color: '#ffffff', roughness: 1.0, metalness: 0.0, envMapIntensity: 0.2,
+                        ...extras
+                    });
+                };
+
+                // HDRI Céu (Usando nome sem acento por segurança)
+                loader.load(path + 'ceu.jpg', (texture) => {
+                    texture.mapping = THREE.EquirectangularReflectionMapping;
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    this.scene.background = texture;
+                    this.scene.environment = texture;
+                }, undefined, (e) => console.log('Aviso: Imagem do céu (ceu.jpg) não encontrada ou ainda com acento.'));
+
+                // Mapeamento EXATO conforme os arquivos no seu print:
+                carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
+                carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
+                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.4, envMapIntensity: 0.5 });
+                
+                // Para o telhado, seu print mostra os arquivos metal_color etc (tudo minúsculo)
+                carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.3, envMapIntensity: 0.5 });
+                
+                // Para o chão (pátio), vamos usar o asfalto conforme seu print
+                carregarMaterial('patio', 'Asfalto_Color.jpg', 'Asfalto_Normal.jpg', 'Asfalto_Roughness.jpg');
+
+                this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.05, metalness: 0.95, envMapIntensity: 1.0 });
+            },
+
+            configurarCena: function() {
+                const container = document.getElementById('canvas-container');
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color('#8abde3');
+                
+                this.camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 1000);
+                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                this.renderer.setSize(container.clientWidth, container.clientHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+                this.renderer.outputEncoding = THREE.sRGBEncoding;
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.0; 
+                container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
+
+                const hemiLight = new THREE.HemisphereLight('#ffffff', '#a8b0aa', 0.4);
+                this.scene.add(hemiLight);
+
+                const sunLight = new THREE.DirectionalLight('#fff5e6', 1.8); 
+                sunLight.position.set(-60, 50, 60); 
+                sunLight.castShadow = true;
+                sunLight.shadow.mapSize.width = 4096; sunLight.shadow.mapSize.height = 4096;
+                sunLight.shadow.camera.near = 0.5; sunLight.shadow.camera.far = 300;
+                sunLight.shadow.bias = -0.0005; 
+                this.scene.add(sunLight);
+
+                const groundGeom = new THREE.PlaneGeometry(10000, 10000);
+                const groundMat = new THREE.MeshStandardMaterial({ color: '#88998f', roughness: 1.0 });
+                const ground = new THREE.Mesh(groundGeom, groundMat);
+                ground.rotation.x = -Math.PI / 2;
+                ground.position.y = -0.05; 
+                ground.receiveShadow = true;
+                this.scene.add(ground);
+
+                this.galpaoGroup = new THREE.Group();
+                this.scene.add(this.galpaoGroup);
+                this.ambienteGroup = new THREE.Group();
+                this.scene.add(this.ambienteGroup);
+            },
+
+            aplicarEscalaMaterial: function(materialBase, scaleX, scaleY) {
+                if(!materialBase) return new THREE.MeshStandardMaterial({color: '#ccc'}); 
+                const clone = materialBase.clone();
+                ['map', 'normalMap', 'roughnessMap'].forEach(mapType => {
+                    if (clone[mapType]) {
+                        clone[mapType] = clone[mapType].clone();
+                        clone[mapType].repeat.set(scaleX, scaleY);
+                        clone[mapType].needsUpdate = true;
+                    }
+                });
+                return clone;
+            },
+
+            adicionarAoGalpao: function(mesh) {
+                mesh.scale.set(0.01, 0.01, 0.01); 
+                mesh.userData.targetScale = new THREE.Vector3(1, 1, 1); 
+                this.elementosAnimados.push(mesh);
+                this.galpaoGroup.add(mesh);
+            },
+
+            construirAmbiente: function(frente, comprimento) {
+                this.ambienteGroup.clear();
+                const profEstacionamento = 15;
+                const patioGeom = new THREE.PlaneGeometry(frente + 10, comprimento + profEstacionamento);
+                
+                // Escala de textura do asfalto
+                const clonePatioMat = this.aplicarEscalaMaterial(this.materiais.patio, (frente+10)/5, (comprimento+profEstacionamento)/5);
+                const patio = new THREE.Mesh(patioGeom, clonePatioMat);
+                patio.rotation.x = -Math.PI / 2;
+                patio.position.set(0, -0.01, profEstacionamento / 3);
+                patio.receiveShadow = true;
+                this.ambienteGroup.add(patio);
+            },
+
+            construirGalpao: function(frente, comprimento) {
+                this.galpaoGroup.clear();
+                this.elementosAnimados = [];
+                this.portaoAberto = false;
+
+                const tipoPortao = document.getElementById('tipoPortao').value;
+                const corPilar = document.getElementById('corPilar').value;
+                const corParede = document.getElementById('corParede').value;
+                
+                // Aplica cores base se o usuário tiver alterado e os materiais existirem
+                if(this.materiais.pilar) this.materiais.pilar.color.set(corPilar);
+                if(this.materiais.parede) this.materiais.parede.color.set(corParede);
+
+                const ESPACO_MAX_PILAR = 5;
+                const numVaosZ = Math.max(1, Math.ceil(comprimento / ESPACO_MAX_PILAR));
+                const tamVaoZ = comprimento / numVaosZ;
+                const numVaosX = Math.max(1, Math.ceil(frente / ESPACO_MAX_PILAR));
+                const tamVaoX = frente / numVaosX;
+                
+                const largPilar = 0.4; const profPilar = 0.55; 
+                const espessuraParede = 0.15;
+                const numPlacasAltura = Math.ceil(this.ALTURA_PE_DIREITO / this.ALTURA_PLACA);
+                const alturaReal = numPlacasAltura * this.ALTURA_PLACA; 
+
+                const pisoInterno = new THREE.Mesh(new THREE.PlaneGeometry(frente - 0.5, comprimento - 0.5), new THREE.MeshStandardMaterial({color: '#282b2e'}));
+                pisoInterno.rotation.x = -Math.PI / 2; pisoInterno.position.y = 0.02;
+                this.galpaoGroup.add(pisoInterno); 
+
+                const _this = this;
+                function criarPilar(x, z) {
+                    const mat = _this.aplicarEscalaMaterial(_this.materiais.pilar, largPilar, alturaReal/2);
+                    const pilar = new THREE.Mesh(new THREE.BoxGeometry(largPilar, alturaReal, profPilar), mat);
+                    pilar.position.set(x, alturaReal/2, z);
+                    pilar.castShadow = true; pilar.receiveShadow = true;
+                    _this.adicionarAoGalpao(pilar);
+                }
+
+                for (let i = 0; i <= numVaosZ; i++) {
+                    let posZ = -comprimento/2 + (i * tamVaoZ);
+                    criarPilar(-frente/2, posZ); criarPilar(frente/2, posZ);
+                    if (i < numVaosZ) {
+                        this.gerarPlacas(-frente/2, posZ + (tamVaoZ / 2), tamVaoZ - largPilar, numPlacasAltura, espessuraParede, false);
+                        this.gerarPlacas(frente/2, posZ + (tamVaoZ / 2), tamVaoZ - largPilar, numPlacasAltura, espessuraParede, true);
+                    }
+                }
+
+                const meioVaoX = Math.floor((numVaosX - 1) / 2); 
+
+                for (let i = 0; i <= numVaosX; i++) {
+                    let posX = -frente/2 + (i * tamVaoX);
+                    
+                    if (i > 0 && i < numVaosX) {
+                        const mat = this.aplicarEscalaMaterial(this.materiais.pilar, profPilar, alturaReal/2);
+                        const pFundo = new THREE.Mesh(new THREE.BoxGeometry(profPilar, alturaReal, largPilar), mat);
+                        pFundo.position.set(posX, alturaReal/2, -comprimento/2); pFundo.castShadow = true; pFundo.receiveShadow = true; this.adicionarAoGalpao(pFundo);
+
+                        const pFrente = new THREE.Mesh(new THREE.BoxGeometry(profPilar, alturaReal, largPilar), mat);
+                        pFrente.position.set(posX, alturaReal/2, comprimento/2); pFrente.castShadow = true; pFrente.receiveShadow = true; this.adicionarAoGalpao(pFrente);
+                    }
+                    
+                    if (i < numVaosX) {
+                        let xCentro = posX + (tamVaoX / 2);
+                        let tamPainel = tamVaoX - largPilar;
+                        this.gerarPlacas(xCentro, -comprimento/2, tamPainel, numPlacasAltura, espessuraParede, false, true);
+
+                        if (i === meioVaoX) { 
+                            const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1); 
+                            
+                            if (tipoPortao === 'enrolar') {
+                                const pMat = this.aplicarEscalaMaterial(this.materiais.porta, tamPainel/3, 0.2);
+                                for (let j = 0; j < altPorta; j += 0.2) {
+                                    const lamina = new THREE.Mesh(new THREE.BoxGeometry(tamPainel, 0.18, 0.05), pMat);
+                                    lamina.position.set(xCentro, altPorta - j, (comprimento/2) + 0.15); 
+                                    lamina.castShadow = true; lamina.userData.animAbertoY = alturaReal + 0.5; lamina.userData.animFechadoY = altPorta - j; lamina.userData.isPortaEnrolar = true;
+                                    this.adicionarAoGalpao(lamina);
+                                }
+                            } else if (tipoPortao === 'correr') {
+                                const pMat = this.aplicarEscalaMaterial(this.materiais.porta, tamPainel/2, altPorta/2);
+                                const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 1.05, altPorta, 0.1), pMat);
+                                porta.position.set(xCentro, altPorta/2, (comprimento/2) + 0.18); 
+                                porta.castShadow = true; porta.userData.animAbertoX = xCentro - (tamPainel * 0.95); porta.userData.animFechadoX = xCentro; porta.userData.isPortaCorrer = true;
+                                this.adicionarAoGalpao(porta);
+                            } else if (tipoPortao === 'duas_folhas') {
+                                const largFolha = tamPainel / 2;
+                                const pMat = this.aplicarEscalaMaterial(this.materiais.porta, largFolha/2, altPorta/2);
+                                
+                                const hingeEsq = new THREE.Group(); hingeEsq.position.set(xCentro - tamPainel/2, 0, comprimento/2 + 0.15);
+                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta, 0.1), pMat); folhaEsq.position.set(largFolha/2, altPorta/2, 0); folhaEsq.castShadow = true; hingeEsq.add(folhaEsq);
+                                hingeEsq.userData.animAbertoR = Math.PI / 2; hingeEsq.userData.animFechadoR = 0; hingeEsq.userData.isPortaGiro = true; this.galpaoGroup.add(hingeEsq); this.elementosAnimados.push(hingeEsq); 
+
+                                const hingeDir = new THREE.Group(); hingeDir.position.set(xCentro + tamPainel/2, 0, comprimento/2 + 0.15);
+                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta, 0.1), pMat); folhaDir.position.set(-largFolha/2, altPorta/2, 0); folhaDir.castShadow = true; hingeDir.add(folhaDir);
+                                hingeDir.userData.animAbertoR = -Math.PI / 2; hingeDir.userData.animFechadoR = 0; hingeDir.userData.isPortaGiro = true; this.galpaoGroup.add(hingeDir); this.elementosAnimados.push(hingeDir);
+                            }
+                            
+                            const trilho = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 2, 0.15, 0.25), new THREE.MeshStandardMaterial({color: '#333'}));
+                            trilho.position.set(xCentro, altPorta + 0.075, (comprimento/2) + 0.15); trilho.castShadow = true; this.adicionarAoGalpao(trilho);
+
+                            const altRestante = alturaReal - altPorta;
+                            if(altRestante > 0) {
+                                const pMat = this.aplicarEscalaMaterial(this.materiais.parede, tamPainel/3, altRestante/3);
+                                const fechamento = new THREE.Mesh(new THREE.BoxGeometry(tamPainel - 0.03, altRestante - 0.03, espessuraParede), pMat);
+                                fechamento.position.set(xCentro, altPorta + (altRestante/2), comprimento/2); fechamento.castShadow = true; this.adicionarAoGalpao(fechamento);
+                            }
+                        } else {
+                            this.gerarPlacas(xCentro, comprimento/2, tamPainel, numPlacasAltura, espessuraParede, false, true);
+                        }
+                    }
+                }
+
+                const inclinacao = 0.15; const alturaCumeeira = (frente / 2) * inclinacao;
+                const oitaoShape = new THREE.Shape(); oitaoShape.moveTo(-frente/2, 0); oitaoShape.lineTo(0, alturaCumeeira); oitaoShape.lineTo(frente/2, 0);
+                const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
+                
+                const oMat = this.aplicarEscalaMaterial(this.materiais.parede, frente/4, 1);
+                const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente);
+                const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo);
+
+                const beiral = 0.6; const largRampa = (frente / 2) + beiral; const altRampa = largRampa * inclinacao; const compRampa = Math.sqrt(Math.pow(largRampa, 2) + Math.pow(altRampa, 2)); const anguloTelhado = Math.atan(inclinacao);
+
+                const tMat = this.aplicarEscalaMaterial(this.materiais.telhado, comprimento/3, compRampa/3);
+                if(tMat.map) tMat.map.rotation = Math.PI / 2; if(tMat.normalMap) tMat.normalMap.rotation = Math.PI / 2; if(tMat.roughnessMap) tMat.roughnessMap.rotation = Math.PI / 2;
+
+                const telhaDir = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaDir.position.set((largRampa/2) - beiral, alturaReal + (altRampa/2) + 0.05, 0); telhaDir.rotation.z = -anguloTelhado; telhaDir.castShadow = true; this.adicionarAoGalpao(telhaDir);
+                const telhaEsq = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaEsq.position.set(-((largRampa/2) - beiral), alturaReal + (altRampa/2) + 0.05, 0); telhaEsq.rotation.z = anguloTelhado; telhaEsq.castShadow = true; this.adicionarAoGalpao(telhaEsq);
+
+                this.construirAmbiente(frente, comprimento);
+
+                const maxDim = Math.max(frente, comprimento);
+                this.camera.position.set(-frente * 1.4, alturaReal * 1.8, comprimento * 1.3);
+                this.controls.target.set(0, alturaReal / 2.5, 0);
+                this.controls.update();
+            },
+
+            gerarPlacas: function(x, z, larguraPainel, numPlacas, espessura, isLateral, isFachada = false) {
+                const gap = 0.03; 
+                for(let i=0; i<numPlacas; i++) {
+                    const altY = (i * this.ALTURA_PLACA) + (this.ALTURA_PLACA/2);
+                    let temJanela = isLateral && (i === 1 || i === 2) && i < (numPlacas - 1);
+                    const pMat = this.aplicarEscalaMaterial(this.materiais.parede, larguraPainel/3, this.ALTURA_PLACA/3);
+
+                    if (temJanela) {
+                        const largJanela = larguraPainel * 0.6; const margemX = (larguraPainel - largJanela) / 2;
+                        const placaEsq = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaEsq.position.set(isFachada ? x - (larguraPainel/2) + (margemX/2) : x, altY, !isFachada ? z - (larguraPainel/2) + (margemX/2) : z); placaEsq.castShadow = true; this.adicionarAoGalpao(placaEsq);
+                        const placaDir = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaDir.position.set(isFachada ? x + (larguraPainel/2) - (margemX/2) : x, altY, !isFachada ? z + (larguraPainel/2) - (margemX/2) : z); placaDir.castShadow = true; this.adicionarAoGalpao(placaDir);
+                        const vidro = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela : espessura/2, this.ALTURA_PLACA * 0.9, !isFachada ? largJanela : espessura/2), this.materiais.vidro); vidro.position.set(x, altY, z); this.adicionarAoGalpao(vidro);
+                    } else {
+                        const placa = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? larguraPainel - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? larguraPainel - gap : espessura), pMat); placa.position.set(x, altY, z); placa.castShadow = true; this.adicionarAoGalpao(placa);
+                    }
+                }
+            },
+
+            togglePortao: function() { this.portaoAberto = !this.portaoAberto; },
+
+            loopAnimacao: function() {
+                requestAnimationFrame(() => this.loopAnimacao());
+                this.controls.update();
+                const lerp = (start, end, factor) => start + (end - start) * factor;
+
+                this.elementosAnimados.forEach(el => {
+                    if (el.userData.targetScale) {
+                        el.scale.x = lerp(el.scale.x, el.userData.targetScale.x, 0.1); el.scale.y = lerp(el.scale.y, el.userData.targetScale.y, 0.1); el.scale.z = lerp(el.scale.z, el.userData.targetScale.z, 0.1);
+                        if (Math.abs(el.scale.x - 1) < 0.01) { el.scale.set(1,1,1); delete el.userData.targetScale; }
+                    }
+                    if (el.userData.isPortaCorrer) el.position.x = lerp(el.position.x, this.portaoAberto ? el.userData.animAbertoX : el.userData.animFechadoX, 0.08);
+                    if (el.userData.isPortaGiro) el.rotation.y = lerp(el.rotation.y, this.portaoAberto ? el.userData.animAbertoR : el.userData.animFechadoR, 0.08);
+                    if (el.userData.isPortaEnrolar) el.position.y = lerp(el.position.y, this.portaoAberto ? el.userData.animAbertoY : el.userData.animFechadoY, 0.1);
+                });
+                this.renderer.render(this.scene, this.camera); 
+            },
+
+            atualizarCoresTempoReal: function() {
+                if(this.materiais.parede) this.materiais.parede.color.set(document.getElementById('corParede').value);
+                if(this.materiais.pilar) this.materiais.pilar.color.set(document.getElementById('corPilar').value);
+                this.atualizarSimulacao();
+            },
+
+            atualizarSimulacao: function() {
+                const frente = parseFloat(document.getElementById('frente').value);
+                const comprimento = parseFloat(document.getElementById('comprimento').value);
+                const tipoPortao = document.getElementById('tipoPortao').value;
+                if(isNaN(frente) || isNaN(comprimento) || frente < 5 || comprimento < 5) return;
+
+                const area = frente * comprimento;
+                let custoTotal = area * this.CUSTO_BASE_M2;
+                if (tipoPortao === 'correr') custoTotal += 2500;
+                else if (tipoPortao === 'duas_folhas') custoTotal += 4500;
+
+                document.getElementById('area-resultado').innerText = area.toLocaleString('pt-BR');
+                document.getElementById('custo-resultado').innerText = custoTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+                this.construirGalpao(frente, comprimento);
+            },
+            onWindowResize: function() {
+                const container = document.getElementById('canvas-container');
+                this.camera.aspect = container.clientWidth / container.clientHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        };
+
+        function setCor(id, hexColor) { document.getElementById(id).value = hexColor; App.atualizarCoresTempoReal(); }
+        window.onload = () => App.init();
+    </script>
+</body>
+</html>
