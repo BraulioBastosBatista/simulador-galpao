@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Galpões 3D - PBR via Servidor</title>
+    <title>Simulador de Galpões 3D - Leve e Otimizado</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -171,33 +171,33 @@
 
                     this.materiais[nomeMaterial] = new THREE.MeshStandardMaterial({
                         map: map, normalMap: normal, roughnessMap: rough,
-                        color: '#ffffff', roughness: 1.0, metalness: 0.0, envMapIntensity: 0.2,
+                        color: '#ffffff', roughness: 0.9, metalness: 0.0,
                         ...extras
                     });
                 };
 
-                // HDRI Céu (Mapeado exatamente como ceu.jpg sem acento)
-                loader.load(path + 'ceu.jpg', (texture) => {
-                    texture.mapping = THREE.EquirectangularReflectionMapping;
-                    texture.colorSpace = THREE.SRGBColorSpace;
-                    this.scene.background = texture;
-                    this.scene.environment = texture;
-                });
+                // HDRI REMOVIDO PARA DEIXAR O SITE MAIS LEVE
+                // O céu agora é apenas uma cor sólida controlada na função configurarCena()
 
-                // Mapeamento EXATO respeitando as maiúsculas e minúsculas do seu print no GitHub
+                // Mapeamento EXATO para ler a pasta do GitHub
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
-                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.4, envMapIntensity: 0.5 });
-                carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.3, envMapIntensity: 0.5 });
-                carregarMaterial('patio', 'Asfalto_Color.jpg', 'Asfalto_Normal.jpg', 'Asfalto_Roughness.jpg');
+                
+                // Reduzimos o metalness para 0.1 devido à remoção do Céu (que servia de reflexo)
+                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.1 });
+                carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.1 });
+                
+                // MUDANÇA PARA O BLOQUETE:
+                carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
-                this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.05, metalness: 0.95, envMapIntensity: 1.0 });
+                this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.1, metalness: 0.8 });
             },
 
             configurarCena: function() {
                 const container = document.getElementById('canvas-container');
                 this.scene = new THREE.Scene();
-                this.scene.background = new THREE.Color('#8abde3');
+                // Fundo de cor sólida (Céu claro e leve)
+                this.scene.background = new THREE.Color('#dbeafe'); 
                 
                 this.camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 1000);
                 this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -214,10 +214,11 @@
                 this.controls.dampingFactor = 0.05;
                 this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
 
-                const hemiLight = new THREE.HemisphereLight('#ffffff', '#a8b0aa', 0.4);
+                // LUZES AUMENTADAS: Compensam a falta da imagem HDRI do céu
+                const hemiLight = new THREE.HemisphereLight('#ffffff', '#a8b0aa', 0.8);
                 this.scene.add(hemiLight);
 
-                const sunLight = new THREE.DirectionalLight('#fff5e6', 1.8); 
+                const sunLight = new THREE.DirectionalLight('#fff5e6', 1.5); 
                 sunLight.position.set(-60, 50, 60); 
                 sunLight.castShadow = true;
                 sunLight.shadow.mapSize.width = 4096; sunLight.shadow.mapSize.height = 4096;
@@ -225,8 +226,9 @@
                 sunLight.shadow.bias = -0.0005; 
                 this.scene.add(sunLight);
 
+                // Chão base de segurança (cor sólida)
                 const groundGeom = new THREE.PlaneGeometry(10000, 10000);
-                const groundMat = new THREE.MeshStandardMaterial({ color: '#88998f', roughness: 1.0 });
+                const groundMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 1.0 });
                 const ground = new THREE.Mesh(groundGeom, groundMat);
                 ground.rotation.x = -Math.PI / 2;
                 ground.position.y = -0.05; 
