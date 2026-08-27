@@ -73,9 +73,9 @@
                     <div class="flex justify-between items-center">
                         <label class="text-sm font-medium text-gray-700">Paredes</label>
                         <div class="flex items-center gap-2">
-                            <button onclick="setCor('corParede', '#f2f0eb')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #f2f0eb;"></button>
-                            <button onclick="setCor('corParede', '#d4d4d8')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #d4d4d8;"></button>
-                            <input type="color" id="corParede" value="#f2f0eb" oninput="App.atualizarCoresTempoReal()">
+                            <button onclick="setCor('corParede', '#e5e7eb')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #e5e7eb;"></button>
+                            <button onclick="setCor('corParede', '#a1a1aa')" class="w-6 h-6 rounded-full border border-gray-300" style="background: #a1a1aa;"></button>
+                            <input type="color" id="corParede" value="#d4d4d8" oninput="App.atualizarCoresTempoReal()">
                         </div>
                     </div>
                     <div class="flex justify-between items-center">
@@ -183,8 +183,8 @@
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.1 });
                 
-                // TELHADO ESCURECIDO: Adicionada a cor '#6b7280' para escurecer o metal galvanizado
-                carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#6b7280', metalness: 0.1 });
+                // TELHADO AINDA MAIS ESCURO
+                carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#374151', metalness: 0.1 });
                 
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
@@ -214,14 +214,13 @@
                 this.controls.dampingFactor = 0.05;
                 this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
 
-                // LUZ AMBIENTE FORTE: Garante que toda a estrutura fique iluminada de forma igual (como a área sombreada do print)
+                // ILUMINAÇÃO SUAVE E GLOBAL
                 const ambientLight = new THREE.AmbientLight('#ffffff', 1.4); 
                 this.scene.add(ambientLight);
 
                 const hemiLight = new THREE.HemisphereLight('#dbeafe', '#5b8a5b', 0.6);
                 this.scene.add(hemiLight);
 
-                // LUZ DIRECIONAL FRACA: Apenas para gerar leve profundidade e volume, sem contrastes agressivos
                 const sunLight = new THREE.DirectionalLight('#fffaed', 0.3); 
                 sunLight.position.set(-60, 50, 60); 
                 sunLight.castShadow = true;
@@ -231,12 +230,12 @@
                 sunLight.shadow.bias = -0.0005; 
                 this.scene.add(sunLight);
 
-                // Gramado Infinito
+                // GRAMADO ESCURECIDO E REBAIXADO
                 const gramadoGeom = new THREE.PlaneGeometry(2000, 2000);
-                const gramadoMat = new THREE.MeshStandardMaterial({ color: '#5b8a5b', roughness: 1.0 }); 
+                const gramadoMat = new THREE.MeshStandardMaterial({ color: '#2d4a2d', roughness: 1.0 }); 
                 const gramado = new THREE.Mesh(gramadoGeom, gramadoMat);
                 gramado.rotation.x = -Math.PI / 2;
-                gramado.position.y = -0.02; 
+                gramado.position.y = -0.15; // Rebaixado para criar a plataforma do bloquete
                 gramado.receiveShadow = true;
                 this.scene.add(gramado);
 
@@ -275,42 +274,24 @@
                 this.ambienteGroup.traverse((child) => { if (child.isMesh && child.geometry) child.geometry.dispose(); });
                 this.ambienteGroup.clear();
                 
-                // ÁREA DE BLOQUETE DUPLICADA E MURO PERIMETRAL
-                const largPatio = frente + 20; 
-                const profPatio = comprimento + 40; 
-                const offsetZ = 10; 
+                // BLOQUETE RETORNADO AO TAMANHO ANTERIOR E ELEVADO (Plataforma 3D)
+                const profEstacionamento = 15;
+                const largPatio = frente + 10;
+                const profPatio = comprimento + profEstacionamento;
                 
-                const patioGeom = new THREE.PlaneGeometry(largPatio, profPatio);
+                const patioGeom = new THREE.BoxGeometry(largPatio, 0.15, profPatio);
+                
                 const clonePatioMat = this.aplicarEscalaMaterial('patio', largPatio/3, profPatio/3);
-                const patio = new THREE.Mesh(patioGeom, clonePatioMat);
-                patio.rotation.x = -Math.PI / 2;
-                patio.position.set(0, 0, offsetZ);
-                patio.receiveShadow = true;
-                this.ambienteGroup.add(patio);
-
-                // MURO PRÉ-MOLDADO
-                const alturaMuro = 2.4;
-                const espMuro = 0.2;
+                const sideMat = new THREE.MeshStandardMaterial({ color: '#888888', roughness: 0.9 });
                 
-                const criarTrecho = (w, d, x, z) => {
-                    // Mapeia a textura da parede (pré-moldado) para dar o visual correto de muro
-                    const mat = this.aplicarEscalaMaterial('parede', w/3, alturaMuro/1.2); 
-                    const muro = new THREE.Mesh(new THREE.BoxGeometry(w, alturaMuro, d), mat);
-                    muro.position.set(x, alturaMuro/2, z);
-                    muro.castShadow = true;
-                    muro.receiveShadow = true;
-                    this.ambienteGroup.add(muro);
-                };
-
-                // Fundo do Lote
-                criarTrecho(largPatio, espMuro, 0, offsetZ - profPatio/2);
-                // Laterais do Lote
-                criarTrecho(espMuro, profPatio, -largPatio/2, offsetZ);
-                criarTrecho(espMuro, profPatio, largPatio/2, offsetZ);
-                // Frente do Lote (com Portão de 6 metros de vão livre)
-                const wFrente = (largPatio - 6) / 2;
-                criarTrecho(wFrente, espMuro, -largPatio/2 + wFrente/2, offsetZ + profPatio/2);
-                criarTrecho(wFrente, espMuro, largPatio/2 - wFrente/2, offsetZ + profPatio/2);
+                // Mapeia o bloquete apenas para a face superior da plataforma
+                const patioMaterials = [sideMat, sideMat, clonePatioMat, sideMat, sideMat, sideMat];
+                
+                const patio = new THREE.Mesh(patioGeom, patioMaterials);
+                patio.position.set(0, -0.075, profEstacionamento / 3); // O topo da plataforma fica exatamente no eixo 0
+                patio.receiveShadow = true;
+                patio.castShadow = true;
+                this.ambienteGroup.add(patio);
             },
 
             construirGalpao: function(frente, comprimento) {
@@ -453,46 +434,39 @@
                 for(let i=0; i<numPlacas; i++) {
                     const altY = (i * this.ALTURA_PLACA) + (this.ALTURA_PLACA/2);
                     
-                    // LÓGICA DE JANELA HORIZONTAL LARGA (Modelo do Print)
-                    // Aplica apenas nas laterais, na penúltima placa de cima para baixo
+                    // JANELAS HORIZONTAIS
                     let temJanela = isLateral && i === (numPlacas - 2) && numPlacas >= 3;
                     
                     const pMat = this.aplicarEscalaMaterial('parede', larguraPainel/3, this.ALTURA_PLACA/3);
 
                     if (temJanela) {
-                        const largJanela = larguraPainel * 0.75; // Janela ocupa 75% da largura do vão
+                        const largJanela = larguraPainel * 0.75; 
                         const margemX = (larguraPainel - largJanela) / 2;
-                        const altVidro = this.ALTURA_PLACA * 0.5; // Altura do vidro proporcional
+                        const altVidro = this.ALTURA_PLACA * 0.5; 
                         const margemY = (this.ALTURA_PLACA - altVidro) / 2;
 
-                        // Pedaço Esquerdo de Concreto
                         const placaEsq = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); 
                         placaEsq.position.set(isFachada ? x - (larguraPainel/2) + (margemX/2) : x, altY, !isFachada ? z - (larguraPainel/2) + (margemX/2) : z); 
                         placaEsq.castShadow = true; this.adicionarAoGalpao(placaEsq, false);
                         
-                        // Pedaço Direito de Concreto
                         const placaDir = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); 
                         placaDir.position.set(isFachada ? x + (larguraPainel/2) - (margemX/2) : x, altY, !isFachada ? z + (larguraPainel/2) - (margemX/2) : z); 
                         placaDir.castShadow = true; this.adicionarAoGalpao(placaDir, false);
 
-                        // Lintel (Concreto acima do vidro)
                         const matTop = this.aplicarEscalaMaterial('parede', largJanela/3, margemY/3);
                         const placaTop = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela - gap : espessura, margemY - gap, !isFachada ? largJanela - gap : espessura), matTop);
                         placaTop.position.set(x, altY + (this.ALTURA_PLACA/2) - (margemY/2), z);
                         placaTop.castShadow = true; this.adicionarAoGalpao(placaTop, false);
 
-                        // Peitoril (Concreto abaixo do vidro)
                         const matBot = this.aplicarEscalaMaterial('parede', largJanela/3, margemY/3);
                         const placaBot = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela - gap : espessura, margemY - gap, !isFachada ? largJanela - gap : espessura), matBot);
                         placaBot.position.set(x, altY - (this.ALTURA_PLACA/2) + (margemY/2), z);
                         placaBot.castShadow = true; this.adicionarAoGalpao(placaBot, false);
 
-                        // O Vidro (Horizontal largo)
                         const vidro = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela : espessura/2, altVidro, !isFachada ? largJanela : espessura/2), this.materiais.vidro); 
                         vidro.position.set(x, altY, z); 
                         this.adicionarAoGalpao(vidro, false);
                     } else {
-                        // Placa de concreto normal e fechada
                         const placa = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? larguraPainel - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? larguraPainel - gap : espessura), pMat); 
                         placa.position.set(x, altY, z); 
                         placa.castShadow = true; 
