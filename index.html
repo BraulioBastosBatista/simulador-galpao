@@ -32,7 +32,7 @@
             </div>
             <div class="flex items-center gap-3">
                 <button onclick="App.toggleCotas()" id="btn-cotas" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all text-sm">
-                    Cotas: Desligado
+                    Cotas: Desligadas
                 </button>
                 <button onclick="App.togglePortao()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all text-sm">
                     Abrir / Fechar Portão
@@ -173,19 +173,20 @@
                     [map, normal, rough].forEach(tex => {
                         tex.wrapS = THREE.RepeatWrapping;
                         tex.wrapT = THREE.RepeatWrapping;
-                        tex.anisotropy = 2; 
+                        tex.anisotropy = 4; // Ajustado levemente para melhorar as ranhuras do concreto
                     });
 
                     this.materiais[nomeMaterial] = new THREE.MeshStandardMaterial({
                         map: map, normalMap: normal, roughnessMap: rough,
                         color: '#ffffff', roughness: 0.9, metalness: 0.0,
+                        normalScale: new THREE.Vector2(1.2, 1.2), // Deixa o relevo mais marcado e bonito
                         ...extras
                     });
                 };
                 
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
-                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { color: '#374151', metalness: 0.1 });
+                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { color: '#374151', metalness: 0.2 });
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#374151', metalness: 0.1 });
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
@@ -205,7 +206,7 @@
                 this.renderer.setSize(container.clientWidth, container.clientHeight);
                 
                 this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.PCFShadowMap; 
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombra mais realista
                 this.renderer.outputEncoding = THREE.sRGBEncoding;
                 this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 this.renderer.toneMappingExposure = 1.0; 
@@ -214,7 +215,8 @@
                 this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
                 this.controls.enableDamping = true;
                 this.controls.dampingFactor = 0.05;
-                this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
+                // IMPEDE A CÂMERA DE ATRAVESSAR O CHÃO
+                this.controls.maxPolarAngle = Math.PI / 2 - 0.02; 
 
                 const ambientLight = new THREE.AmbientLight('#ffffff', 1.4); 
                 this.scene.add(ambientLight);
@@ -222,11 +224,11 @@
                 const hemiLight = new THREE.HemisphereLight('#dbeafe', '#5b8a5b', 0.6);
                 this.scene.add(hemiLight);
 
-                const sunLight = new THREE.DirectionalLight('#fffaed', 0.3); 
+                const sunLight = new THREE.DirectionalLight('#fffaed', 0.4); 
                 sunLight.position.set(-60, 50, 60); 
                 sunLight.castShadow = true;
-                sunLight.shadow.mapSize.width = 1024; 
-                sunLight.shadow.mapSize.height = 1024;
+                sunLight.shadow.mapSize.width = 2048; 
+                sunLight.shadow.mapSize.height = 2048;
                 sunLight.shadow.camera.near = 0.5; sunLight.shadow.camera.far = 300;
                 sunLight.shadow.bias = -0.0005; 
                 this.scene.add(sunLight);
@@ -276,12 +278,12 @@
                 this.cotasAtivas = !this.cotasAtivas;
                 const btn = document.getElementById('btn-cotas');
                 if (this.cotasAtivas) {
-                    btn.innerText = "Cotas: Ligado";
+                    btn.innerText = "Cotas: Ligadas";
                     btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
                     btn.classList.add('bg-orange-500', 'hover:bg-orange-600');
                     this.atualizarCotas();
                 } else {
-                    btn.innerText = "Cotas: Desligado";
+                    btn.innerText = "Cotas: Desligadas";
                     btn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
                     btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
                     if (this.cotasGroup) this.cotasGroup.clear();
@@ -298,68 +300,113 @@
                 const alturaReal = numPlacasAltura * this.ALTURA_PLACA;
                 const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1);
 
-                const materialLinha = new THREE.LineBasicMaterial({ color: 0x1e3a8a, linewidth: 3 });
+                const materialLinha = new THREE.LineBasicMaterial({ color: 0x0f172a, linewidth: 2 }); 
 
+                // GERAÇÃO DA COTA COM DESIGN PROFISSIONAL (PÍLULA ARQUITETÔNICA)
                 const criarCotaTexto = (texto, x, y, z) => {
                     const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = 256;
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 512;
                     canvas.height = 128;
-                    context.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                    context.fillRect(0, 0, canvas.width, canvas.height);
-                    context.lineWidth = 6;
-                    context.strokeStyle = '#1e3a8a';
-                    context.strokeRect(0, 0, canvas.width, canvas.height);
                     
-                    context.font = 'Bold 38px Arial';
-                    context.fillStyle = '#1e3a8a';
-                    context.textAlign = 'center';
-                    context.textBaseline = 'middle';
-                    context.fillText(texto, canvas.width / 2, canvas.height / 2);
+                    const radius = 50;
+                    ctx.fillStyle = '#0f172a'; // Azul Marinho quase preto
+                    ctx.beginPath();
+                    ctx.moveTo(radius + 10, 10);
+                    ctx.lineTo(502 - radius, 10);
+                    ctx.quadraticCurveTo(502, 10, 502, 10 + radius);
+                    ctx.lineTo(502, 118 - radius);
+                    ctx.quadraticCurveTo(502, 118, 502 - radius, 118);
+                    ctx.lineTo(radius + 10, 118);
+                    ctx.quadraticCurveTo(10, 118, 10, 118 - radius);
+                    ctx.lineTo(10, 10 + radius);
+                    ctx.quadraticCurveTo(10, 10, radius + 10, 10);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 6;
+                    ctx.stroke();
+
+                    ctx.font = 'bold 44px "Segoe UI", Arial, sans-serif';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(texto, canvas.width / 2, canvas.height / 2);
                     
                     const texture = new THREE.CanvasTexture(canvas);
-                    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+                    texture.anisotropy = 4;
+                    // depthTest: false faz com que a etiqueta fique sempre visível, sem entrar nas paredes
+                    const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
                     const sprite = new THREE.Sprite(spriteMaterial);
-                    sprite.scale.set(2.2, 1.1, 1);
+                    sprite.scale.set(4, 1, 1);
                     sprite.position.set(x, y, z);
+                    sprite.renderOrder = 999; 
                     this.cotasGroup.add(sprite);
                 };
 
-                const criarLinha = (p1, p2) => {
+                const criarCota = (p1, p2, normalTick, texto, offsetTexto) => {
                     const geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
                     const line = new THREE.Line(geometry, materialLinha);
                     this.cotasGroup.add(line);
+
+                    const tickSize = 0.4;
+                    const t1 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                        p1.clone().add(normalTick.clone().multiplyScalar(tickSize)),
+                        p1.clone().add(normalTick.clone().multiplyScalar(-tickSize))
+                    ]), materialLinha);
+                    const t2 = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+                        p2.clone().add(normalTick.clone().multiplyScalar(tickSize)),
+                        p2.clone().add(normalTick.clone().multiplyScalar(-tickSize))
+                    ]), materialLinha);
+                    
+                    this.cotasGroup.add(t1);
+                    this.cotasGroup.add(t2);
+
+                    const center = p1.clone().lerp(p2, 0.5).add(offsetTexto);
+                    criarCotaTexto(texto, center.x, center.y, center.z);
                 };
 
-                const offsetDist = 2.5;
+                const offX = (frente / 2) + 2.0;
+                const offZ = (comprimento / 2) + 2.0;
 
-                // 1. Cota de Frente (Largura)
-                const zFrente = (comprimento / 2) + offsetDist;
-                criarLinha(new THREE.Vector3(-frente/2, 0.05, comprimento/2), new THREE.Vector3(-frente/2, 0.05, zFrente));
-                criarLinha(new THREE.Vector3(frente/2, 0.05, comprimento/2), new THREE.Vector3(frente/2, 0.05, zFrente));
-                criarLinha(new THREE.Vector3(-frente/2, 0.05, zFrente), new THREE.Vector3(frente/2, 0.05, zFrente));
-                criarCotaTexto(`Frente: ${frente}m`, 0, 0.5, zFrente);
+                // 1. Frente
+                criarCota(
+                    new THREE.Vector3(-frente/2, 0.1, offZ), 
+                    new THREE.Vector3(frente/2, 0.1, offZ), 
+                    new THREE.Vector3(0, 0, 1), 
+                    `LARGURA: ${frente}m`, 
+                    new THREE.Vector3(0, 0, 0.8)
+                );
 
-                // 2. Cota de Comprimento
-                const xLateral = (frente / 2) + offsetDist;
-                criarLinha(new THREE.Vector3(frente/2, 0.05, -comprimento/2), new THREE.Vector3(xLateral, 0.05, -comprimento/2));
-                criarLinha(new THREE.Vector3(frente/2, 0.05, comprimento/2), new THREE.Vector3(xLateral, 0.05, comprimento/2));
-                criarLinha(new THREE.Vector3(xLateral, 0.05, -comprimento/2), new THREE.Vector3(xLateral, 0.05, comprimento/2));
-                criarCotaTexto(`Comp: ${comprimento}m`, xLateral, 0.5, 0);
+                // 2. Comprimento
+                criarCota(
+                    new THREE.Vector3(offX, 0.1, -comprimento/2), 
+                    new THREE.Vector3(offX, 0.1, comprimento/2), 
+                    new THREE.Vector3(1, 0, 0), 
+                    `COMPRIMENTO: ${comprimento}m`, 
+                    new THREE.Vector3(1.2, 0, 0)
+                );
 
-                // 3. Cota de Altura até o Telhado
-                const xAltura = xLateral + 1.5;
-                criarLinha(new THREE.Vector3(xLateral, 0.05, 0), new THREE.Vector3(xAltura, 0.05, 0));
-                criarLinha(new THREE.Vector3(xLateral, alturaReal, 0), new THREE.Vector3(xAltura, alturaReal, 0));
-                criarLinha(new THREE.Vector3(xAltura, 0.05, 0), new THREE.Vector3(xAltura, alturaReal, 0));
-                criarCotaTexto(`H. Telhado: ${alturaReal.toFixed(1)}m`, xAltura + 0.3, alturaReal / 2, 0);
+                // 3. Altura Telhado
+                const offXAlt = offX + 1.5;
+                criarCota(
+                    new THREE.Vector3(offXAlt, 0, 0), 
+                    new THREE.Vector3(offXAlt, alturaReal, 0), 
+                    new THREE.Vector3(1, 0, 0), 
+                    `PÉ-DIREITO: ${alturaReal.toFixed(1)}m`, 
+                    new THREE.Vector3(1.2, 0, 0)
+                );
 
-                // 4. Cota de Altura até o Portão
-                const xPortaCota = -frente/2 - offsetDist;
-                criarLinha(new THREE.Vector3(-frente/2, 0.05, comprimento/2), new THREE.Vector3(xPortaCota, 0.05, comprimento/2));
-                criarLinha(new THREE.Vector3(-frente/2, altPorta, comprimento/2), new THREE.Vector3(xPortaCota, altPorta, comprimento/2));
-                criarLinha(new THREE.Vector3(xPortaCota, 0.05, comprimento/2), new THREE.Vector3(xPortaCota, altPorta, comprimento/2));
-                criarCotaTexto(`H. Portão: ${altPorta.toFixed(1)}m`, xPortaCota, altPorta / 2, comprimento/2);
+                // 4. Altura Portão
+                const offXPorta = -frente/2 - 1.5;
+                criarCota(
+                    new THREE.Vector3(offXPorta, 0, comprimento/2), 
+                    new THREE.Vector3(offXPorta, altPorta, comprimento/2), 
+                    new THREE.Vector3(1, 0, 0), 
+                    `ALTURA: ${altPorta.toFixed(1)}m`, 
+                    new THREE.Vector3(-1.4, 0, 0)
+                );
             },
 
             construirAmbiente: function(frente, comprimento) {
@@ -539,7 +586,12 @@
                     }
                 }
 
-                const inclinacao = 0.15; const alturaCumeeira = (frente / 2) * inclinacao;
+                // CORREÇÃO DEFINITIVA DOS BEIRAIS (Overhang do Telhado)
+                const inclinacao = 0.15; 
+                const alturaCumeeira = (frente / 2) * inclinacao;
+                const beiralFrontalFundo = 0.8; 
+                const beiralLateral = 0.8;
+
                 const oitaoShape = new THREE.Shape(); oitaoShape.moveTo(-frente/2, 0); oitaoShape.lineTo(0, alturaCumeeira); oitaoShape.lineTo(frente/2, 0);
                 const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
                 
@@ -547,13 +599,27 @@
                 const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente, false);
                 const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo, false);
 
-                const beiral = 0.6; const largRampa = (frente / 2) + beiral; const altRampa = largRampa * inclinacao; const compRampa = Math.sqrt(Math.pow(largRampa, 2) + Math.pow(altRampa, 2)); const anguloTelhado = Math.atan(inclinacao);
+                // Cálculo exato do tamanho das placas do telhado considerando os beirais
+                const largRampa = (frente / 2) + beiralLateral; 
+                const altRampa = largRampa * inclinacao; 
+                const compRampa = Math.sqrt(Math.pow(largRampa, 2) + Math.pow(altRampa, 2)); 
+                const anguloTelhado = Math.atan(inclinacao);
+                const compTelhadoZ = comprimento + (beiralFrontalFundo * 2);
 
-                const tMat = this.aplicarEscalaMaterial('telhado', comprimento/3, compRampa/3);
+                const tMat = this.aplicarEscalaMaterial('telhado', compTelhadoZ/3, compRampa/3);
                 if(tMat.map) tMat.map.rotation = Math.PI / 2; if(tMat.normalMap) tMat.normalMap.rotation = Math.PI / 2; if(tMat.roughnessMap) tMat.roughnessMap.rotation = Math.PI / 2;
 
-                const telhaDir = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaDir.position.set((largRampa/2) - beiral, alturaReal + (altRampa/2) + 0.05, 0); telhaDir.rotation.z = -anguloTelhado; telhaDir.castShadow = true; this.adicionarAoGalpao(telhaDir, false);
-                const telhaEsq = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaEsq.position.set(-((largRampa/2) - beiral), alturaReal + (altRampa/2) + 0.05, 0); telhaEsq.rotation.z = anguloTelhado; telhaEsq.castShadow = true; this.adicionarAoGalpao(telhaEsq, false);
+                const telhaDir = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, compTelhadoZ), tMat); 
+                telhaDir.position.set(largRampa/2, alturaReal + (altRampa/2) + 0.05, 0); 
+                telhaDir.rotation.z = -anguloTelhado; 
+                telhaDir.castShadow = true; 
+                this.adicionarAoGalpao(telhaDir, false);
+
+                const telhaEsq = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, compTelhadoZ), tMat); 
+                telhaEsq.position.set(-largRampa/2, alturaReal + (altRampa/2) + 0.05, 0); 
+                telhaEsq.rotation.z = anguloTelhado; 
+                telhaEsq.castShadow = true; 
+                this.adicionarAoGalpao(telhaEsq, false);
 
                 this.construirAmbiente(frente, comprimento);
                 if (this.cotasAtivas) this.atualizarCotas();
