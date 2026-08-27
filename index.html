@@ -57,7 +57,6 @@
                         <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Portão</label>
                         <select id="tipoPortao" onchange="App.atualizarSimulacao()" class="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-300 text-sm outline-none">
                             <option value="correr">Portão de Correr Lateral</option>
-                            <option value="enrolar">Portão de Enrolar</option>
                             <option value="duas_folhas">Portão 2 Folhas Industrial</option>
                         </select>
                     </div>
@@ -181,8 +180,13 @@
                 
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
-                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.1 });
+                
+                // PORTÃO ESCURECIDO
+                carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { color: '#374151', metalness: 0.1 });
+                
+                // TELHADO ESCURO
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#374151', metalness: 0.1 });
+                
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#101314', roughness: 0.1, metalness: 0.9 });
@@ -205,6 +209,11 @@
                 this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 this.renderer.toneMappingExposure = 1.0; 
                 container.appendChild(this.renderer.domElement);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
 
                 const ambientLight = new THREE.AmbientLight('#ffffff', 1.4); 
                 this.scene.add(ambientLight);
@@ -278,31 +287,6 @@
                 patio.receiveShadow = true;
                 patio.castShadow = true;
                 this.ambienteGroup.add(patio);
-
-                // GERADOR DE FAIXAS DE ESTACIONAMENTO (Vagas)
-                const largVaga = 2.5;
-                const numVagas = Math.floor((frente - 1) / largVaga);
-                const espLinha = 0.1;
-                const compVaga = 5.0;
-                const matLinha = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 });
-
-                const inicioX = -(numVagas * largVaga) / 2;
-                const offsetZ_vagas = (comprimento / 2) + 1; // Faixas começam 1m após a fachada do galpão
-
-                for (let i = 0; i <= numVagas; i++) {
-                    const xPos = inicioX + (i * largVaga);
-                    const linha = new THREE.Mesh(new THREE.BoxGeometry(espLinha, 0.02, compVaga), matLinha);
-                    linha.position.set(xPos, 0.01, offsetZ_vagas + (compVaga / 2)); // 0.01 = levemente acima do bloquete
-                    linha.receiveShadow = true;
-                    this.ambienteGroup.add(linha);
-                }
-                
-                // Linha transversal fechando o estacionamento
-                const larguraTotalLinha = numVagas * largVaga + espLinha;
-                const linhaFrente = new THREE.Mesh(new THREE.BoxGeometry(larguraTotalLinha, 0.02, espLinha), matLinha);
-                linhaFrente.position.set(0, 0.01, offsetZ_vagas + compVaga);
-                linhaFrente.receiveShadow = true;
-                this.ambienteGroup.add(linhaFrente);
             },
 
             construirGalpao: function(frente, comprimento) {
@@ -374,19 +358,7 @@
                         if (i === meioVaoX) { 
                             const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1); 
                             
-                            if (tipoPortao === 'enrolar') {
-                                const pMat = this.aplicarEscalaMaterial('porta', tamPainel/3, 0.2);
-                                for (let j = 0; j < altPorta; j += 0.2) {
-                                    const lamina = new THREE.Mesh(new THREE.BoxGeometry(tamPainel, 0.18, 0.05), pMat);
-                                    lamina.position.set(xCentro, altPorta - j, (comprimento/2) + 0.15); 
-                                    lamina.castShadow = true; 
-                                    // AJUSTE DO PORTÃO DE ENROLAR: Ele para na altura da verga (+0.05) e não vai até o teto
-                                    lamina.userData.animAbertoY = altPorta + 0.05; 
-                                    lamina.userData.animFechadoY = altPorta - j; 
-                                    lamina.userData.isPortaEnrolar = true;
-                                    this.adicionarAoGalpao(lamina, true);
-                                }
-                            } else if (tipoPortao === 'correr') {
+                            if (tipoPortao === 'correr') {
                                 const pMat = this.aplicarEscalaMaterial('porta', tamPainel/2, altPorta/2);
                                 const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 1.05, altPorta, 0.1), pMat);
                                 porta.position.set(xCentro, altPorta/2, (comprimento/2) + 0.18); 
@@ -396,20 +368,42 @@
                                 const largFolha = tamPainel / 2;
                                 const pMat = this.aplicarEscalaMaterial('porta', largFolha/2, altPorta/2);
                                 
-                                const hingeEsq = new THREE.Group(); hingeEsq.position.set(xCentro - tamPainel/2, 0, comprimento/2 + 0.15);
-                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta, 0.1), pMat); folhaEsq.position.set(largFolha/2, altPorta/2, 0); folhaEsq.castShadow = true; hingeEsq.add(folhaEsq);
+                                const hingeEsq = new THREE.Group(); 
+                                hingeEsq.position.set(xCentro - largFolha, 0, comprimento/2 + 0.15);
                                 
-                                // LINHA PRETA CENTRAL NO PORTÃO DE DUAS FOLHAS
+                                // Folha Esquerda: Reduzida em 2mm para não encostar na direita e evitar tremulação (Z-Fighting)
+                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.02, altPorta, 0.1), pMat); 
+                                folhaEsq.position.set((largFolha - 0.02)/2, altPorta/2, 0); 
+                                folhaEsq.castShadow = true; 
+                                hingeEsq.add(folhaEsq);
+                                
+                                // LINHA PRETA DE VEDAÇÃO CENTRAL
                                 const matLinhaDivisoria = new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 });
-                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.06, altPorta, 0.12), matLinhaDivisoria);
-                                linhaDivisoria.position.set(largFolha, altPorta/2, 0); // Fica na ponta da folha esquerda
+                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.08, altPorta, 0.14), matLinhaDivisoria);
+                                // Puxada levemente para frente (0.01) para se destacar sempre, colada na beirada da folha esquerda
+                                linhaDivisoria.position.set(largFolha - 0.01, altPorta/2, 0.01); 
+                                linhaDivisoria.castShadow = true;
                                 hingeEsq.add(linhaDivisoria);
 
-                                hingeEsq.userData.animAbertoR = Math.PI / 2; hingeEsq.userData.animFechadoR = 0; hingeEsq.userData.isPortaGiro = true; this.galpaoGroup.add(hingeEsq); this.elementosAnimados.push(hingeEsq); 
+                                hingeEsq.userData.animAbertoR = Math.PI / 2; 
+                                hingeEsq.userData.animFechadoR = 0; 
+                                hingeEsq.userData.isPortaGiro = true; 
+                                this.galpaoGroup.add(hingeEsq); 
+                                this.elementosAnimados.push(hingeEsq); 
 
-                                const hingeDir = new THREE.Group(); hingeDir.position.set(xCentro + tamPainel/2, 0, comprimento/2 + 0.15);
-                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta, 0.1), pMat); folhaDir.position.set(-largFolha/2, altPorta/2, 0); folhaDir.castShadow = true; hingeDir.add(folhaDir);
-                                hingeDir.userData.animAbertoR = -Math.PI / 2; hingeDir.userData.animFechadoR = 0; hingeDir.userData.isPortaGiro = true; this.galpaoGroup.add(hingeDir); this.elementosAnimados.push(hingeDir);
+                                const hingeDir = new THREE.Group(); 
+                                hingeDir.position.set(xCentro + largFolha, 0, comprimento/2 + 0.15);
+                                // Folha Direita
+                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.02, altPorta, 0.1), pMat); 
+                                folhaDir.position.set(-(largFolha - 0.02)/2, altPorta/2, 0); 
+                                folhaDir.castShadow = true; 
+                                hingeDir.add(folhaDir);
+                                
+                                hingeDir.userData.animAbertoR = -Math.PI / 2; 
+                                hingeDir.userData.animFechadoR = 0; 
+                                hingeDir.userData.isPortaGiro = true; 
+                                this.galpaoGroup.add(hingeDir); 
+                                this.elementosAnimados.push(hingeDir);
                             }
                             
                             const trilho = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 2, 0.15, 0.25), new THREE.MeshStandardMaterial({color: '#333'}));
@@ -501,12 +495,16 @@
             loopAnimacao: function() {
                 requestAnimationFrame(() => this.loopAnimacao());
                 this.controls.update();
-                const lerp = (start, end, factor) => start + (end - start) * factor;
+                
+                // LÓGICA ANTI-TREMOR: Trava a matemática antes de tentar calcular micro frações
+                const lerp = (start, end, factor) => {
+                    const result = start + (end - start) * factor;
+                    return Math.abs(end - result) < 0.001 ? end : result;
+                };
 
                 this.elementosAnimados.forEach(el => {
                     if (el.userData.isPortaCorrer) el.position.x = lerp(el.position.x, this.portaoAberto ? el.userData.animAbertoX : el.userData.animFechadoX, 0.08);
                     if (el.userData.isPortaGiro) el.rotation.y = lerp(el.rotation.y, this.portaoAberto ? el.userData.animAbertoR : el.userData.animFechadoR, 0.08);
-                    if (el.userData.isPortaEnrolar) el.position.y = lerp(el.position.y, this.portaoAberto ? el.userData.animAbertoY : el.userData.animFechadoY, 0.1);
                 });
                 this.renderer.render(this.scene, this.camera); 
             },
