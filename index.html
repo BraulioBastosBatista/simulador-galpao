@@ -106,6 +106,13 @@
 
         <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
             <div id="canvas-container" class="w-full h-full"></div>
+            
+            <!-- TELA DE CARREGAMENTO INTELIGENTE -->
+            <div id="loading-screen" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
+                <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-brand-600 mb-4"></div>
+                <h3 class="text-lg font-bold text-brand-900 mb-1">Carregando Estúdio 3D</h3>
+                <p class="text-sm text-gray-500 font-medium">Baixando texturas: <span id="loading-progress">0%</span></p>
+            </div>
         </div>
 
     </main>
@@ -120,21 +127,33 @@
 
             init: function() {
                 this.configurarCena();
+                this.configurarGerenciadorDeCarregamento();
                 this.carregarTexturasServidor();
-                
-                // Aguardamos as texturas carregarem antes de construir a estrutura pela primeira vez
-                setTimeout(() => {
-                    this.atualizarSimulacao();
-                    this.loopAnimacao();
-                }, 500);
+                this.loopAnimacao();
                 window.addEventListener('resize', () => this.onWindowResize());
+            },
+
+            configurarGerenciadorDeCarregamento: function() {
+                THREE.DefaultLoadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+                    const progresso = Math.round((itemsLoaded / itemsTotal) * 100);
+                    document.getElementById('loading-progress').innerText = progresso + '%';
+                };
+                
+                THREE.DefaultLoadingManager.onLoad = () => {
+                    document.getElementById('loading-screen').classList.add('opacity-0');
+                    setTimeout(() => {
+                        document.getElementById('loading-screen').classList.add('hidden');
+                        this.atualizarSimulacao();
+                    }, 500);
+                };
+
+                THREE.DefaultLoadingManager.onError = (url) => {
+                    console.error('Erro ao baixar textura (verifique nome/caminho):', url);
+                };
             },
 
             carregarTexturasServidor: function() {
                 const loader = new THREE.TextureLoader();
-                
-                // === A MÁGICA ESTÁ AQUI: CAMINHO ABSOLUTO ===
-                // Agora é impossível o navegador se perder, não importa como você acesse o site.
                 const path = 'https://BraulioBastosBatista.github.io/simulador-galpao/texturas/';
 
                 const carregarMaterial = (nomeMaterial, imgColor, imgNormal, imgRoughness, extras = {}) => {
@@ -157,7 +176,7 @@
                     });
                 };
 
-                // HDRI Céu
+                // HDRI Céu (Mapeado exatamente como ceu.jpg sem acento)
                 loader.load(path + 'ceu.jpg', (texture) => {
                     texture.mapping = THREE.EquirectangularReflectionMapping;
                     texture.colorSpace = THREE.SRGBColorSpace;
@@ -165,10 +184,9 @@
                     this.scene.environment = texture;
                 });
 
-                // Materiais exatos da sua pasta texturas/
+                // Mapeamento EXATO respeitando as maiúsculas e minúsculas do seu print no GitHub
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
-                this.materiais.pilar = this.materiais.parede.clone(); // O Pilar usa a textura da Parede
-                
+                carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.4, envMapIntensity: 0.5 });
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.3, envMapIntensity: 0.5 });
                 carregarMaterial('patio', 'Asfalto_Color.jpg', 'Asfalto_Normal.jpg', 'Asfalto_Roughness.jpg');
