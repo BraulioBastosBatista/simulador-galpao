@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Galpões 3D - Ultra Otimizado</title>
+    <title>Simulador de Galpões 3D - Acabamento Profissional</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -181,15 +181,16 @@
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
                 
-                // PORTÃO ESCURECIDO
+                // Portão escuro
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { color: '#374151', metalness: 0.1 });
-                
-                // TELHADO ESCURO
+                // Telhado escuro (usado também no oitão)
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#374151', metalness: 0.1 });
-                
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#101314', roughness: 0.1, metalness: 0.9 });
+                
+                // Material do rejunte (Cimento escuro nas frestas)
+                this.materiais.rejunte = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 1.0 });
             },
 
             configurarCena: function() {
@@ -342,7 +343,7 @@
                     let posX = -frente/2 + (i * tamVaoX);
                     
                     if (i > 0 && i < numVaosX) {
-                        const mat = this.aplicarEscalaMaterial('pilar', profPilar, alturaReal/2);
+                        const mat = _this.aplicarEscalaMaterial('pilar', profPilar, alturaReal/2);
                         const pFundo = new THREE.Mesh(new THREE.BoxGeometry(profPilar, alturaReal, largPilar), mat);
                         pFundo.position.set(posX, alturaReal/2, -comprimento/2); pFundo.castShadow = true; pFundo.receiveShadow = true; this.adicionarAoGalpao(pFundo, false);
 
@@ -359,29 +360,33 @@
                             const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1); 
                             
                             if (tipoPortao === 'correr') {
+                                // Portão reduzido em largura e altura para não raspar no chão, no trilho ou nas laterais
                                 const pMat = this.aplicarEscalaMaterial('porta', tamPainel/2, altPorta/2);
-                                const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 1.05, altPorta, 0.1), pMat);
-                                porta.position.set(xCentro, altPorta/2, (comprimento/2) + 0.18); 
-                                porta.castShadow = true; porta.userData.animAbertoX = xCentro - (tamPainel * 0.95); porta.userData.animFechadoX = xCentro; porta.userData.isPortaCorrer = true;
+                                const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel - 0.04, altPorta - 0.02, 0.1), pMat);
+                                porta.position.set(xCentro, (altPorta - 0.02)/2, (comprimento/2) + 0.18); 
+                                porta.castShadow = true; 
+                                porta.userData.animAbertoX = xCentro - (tamPainel - 0.04); 
+                                porta.userData.animFechadoX = xCentro; 
+                                porta.userData.isPortaCorrer = true;
                                 this.adicionarAoGalpao(porta, true);
+
                             } else if (tipoPortao === 'duas_folhas') {
-                                const largFolha = tamPainel / 2;
+                                const largFolha = (tamPainel - 0.04) / 2; // Desconto de 4cm para não raspar no pilar
                                 const pMat = this.aplicarEscalaMaterial('porta', largFolha/2, altPorta/2);
                                 
                                 const hingeEsq = new THREE.Group(); 
-                                hingeEsq.position.set(xCentro - largFolha, 0, comprimento/2 + 0.15);
+                                hingeEsq.position.set(xCentro - tamPainel/2 + 0.02, 0, comprimento/2 + 0.15); // Recuo de 2cm do pilar
                                 
-                                // Folha Esquerda: Reduzida em 2mm para não encostar na direita e evitar tremulação (Z-Fighting)
-                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.02, altPorta, 0.1), pMat); 
-                                folhaEsq.position.set((largFolha - 0.02)/2, altPorta/2, 0); 
+                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta - 0.02, 0.1), pMat); 
+                                folhaEsq.position.set(largFolha/2, (altPorta - 0.02)/2, 0); 
                                 folhaEsq.castShadow = true; 
                                 hingeEsq.add(folhaEsq);
                                 
                                 // LINHA PRETA DE VEDAÇÃO CENTRAL
                                 const matLinhaDivisoria = new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 });
-                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.08, altPorta, 0.14), matLinhaDivisoria);
-                                // Puxada levemente para frente (0.01) para se destacar sempre, colada na beirada da folha esquerda
-                                linhaDivisoria.position.set(largFolha - 0.01, altPorta/2, 0.01); 
+                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.08, altPorta - 0.02, 0.16), matLinhaDivisoria);
+                                // Posicionada exatamente na ponta da folha esquerda e mais grossa para garantir visão perfeita
+                                linhaDivisoria.position.set(largFolha, (altPorta - 0.02)/2, 0); 
                                 linhaDivisoria.castShadow = true;
                                 hingeEsq.add(linhaDivisoria);
 
@@ -392,10 +397,10 @@
                                 this.elementosAnimados.push(hingeEsq); 
 
                                 const hingeDir = new THREE.Group(); 
-                                hingeDir.position.set(xCentro + largFolha, 0, comprimento/2 + 0.15);
-                                // Folha Direita
-                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.02, altPorta, 0.1), pMat); 
-                                folhaDir.position.set(-(largFolha - 0.02)/2, altPorta/2, 0); 
+                                hingeDir.position.set(xCentro + tamPainel/2 - 0.02, 0, comprimento/2 + 0.15);
+                                
+                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta - 0.02, 0.1), pMat); 
+                                folhaDir.position.set(-largFolha/2, (altPorta - 0.02)/2, 0); 
                                 folhaDir.castShadow = true; 
                                 hingeDir.add(folhaDir);
                                 
@@ -425,7 +430,8 @@
                 const oitaoShape = new THREE.Shape(); oitaoShape.moveTo(-frente/2, 0); oitaoShape.lineTo(0, alturaCumeeira); oitaoShape.lineTo(frente/2, 0);
                 const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
                 
-                const oMat = this.aplicarEscalaMaterial('parede', frente/4, 1);
+                // OITÃO (Parte da frente e fundo) COM MATERIAL DO TELHADO
+                const oMat = this.aplicarEscalaMaterial('telhado', frente/4, 1);
                 const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente, false);
                 const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo, false);
 
@@ -447,11 +453,32 @@
 
             gerarPlacas: function(x, z, larguraPainel, numPlacas, espessura, isLateral, isFachada = false) {
                 const gap = 0.03; 
+
+                // Função auxiliar que cria a placa de concreto e já adiciona o cimento escuro no fundo
+                const criarPlaca = (w, h, px, py, pz, mat, isVidro = false) => {
+                    const wPlaca = isFachada ? w - gap : espessura;
+                    const hPlaca = isVidro ? h : h - gap;
+                    const dPlaca = !isFachada ? w - gap : espessura;
+                    
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(wPlaca, hPlaca, dPlaca), mat);
+                    mesh.position.set(px, py, pz);
+                    if (!isVidro) mesh.castShadow = true;
+                    this.adicionarAoGalpao(mesh, false);
+
+                    // PREENCHIMENTO DE CIMENTO ENTRE AS PLACAS
+                    if (!isVidro) {
+                        const wRejunte = isFachada ? w : espessura - 0.06;
+                        const dRejunte = !isFachada ? w : espessura - 0.06;
+                        
+                        const rejunte = new THREE.Mesh(new THREE.BoxGeometry(wRejunte, h, dRejunte), this.materiais.rejunte);
+                        rejunte.position.set(px, py, pz);
+                        this.adicionarAoGalpao(rejunte, false);
+                    }
+                };
+
                 for(let i=0; i<numPlacas; i++) {
                     const altY = (i * this.ALTURA_PLACA) + (this.ALTURA_PLACA/2);
-                    
                     let temJanela = isLateral && i === (numPlacas - 2) && numPlacas >= 3;
-                    
                     const pMat = this.aplicarEscalaMaterial('parede', larguraPainel/3, this.ALTURA_PLACA/3);
 
                     if (temJanela) {
@@ -460,32 +487,23 @@
                         const altVidro = this.ALTURA_PLACA * 0.5; 
                         const margemY = (this.ALTURA_PLACA - altVidro) / 2;
 
-                        const placaEsq = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); 
-                        placaEsq.position.set(isFachada ? x - (larguraPainel/2) + (margemX/2) : x, altY, !isFachada ? z - (larguraPainel/2) + (margemX/2) : z); 
-                        placaEsq.castShadow = true; this.adicionarAoGalpao(placaEsq, false);
-                        
-                        const placaDir = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); 
-                        placaDir.position.set(isFachada ? x + (larguraPainel/2) - (margemX/2) : x, altY, !isFachada ? z + (larguraPainel/2) - (margemX/2) : z); 
-                        placaDir.castShadow = true; this.adicionarAoGalpao(placaDir, false);
+                        const pxEsq = isFachada ? x - (larguraPainel/2) + (margemX/2) : x;
+                        const pzEsq = !isFachada ? z - (larguraPainel/2) + (margemX/2) : z;
+                        criarPlaca(margemX, this.ALTURA_PLACA, pxEsq, altY, pzEsq, pMat);
 
-                        const matTop = this.aplicarEscalaMaterial('parede', largJanela/3, margemY/3);
-                        const placaTop = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela - gap : espessura, margemY - gap, !isFachada ? largJanela - gap : espessura), matTop);
-                        placaTop.position.set(x, altY + (this.ALTURA_PLACA/2) - (margemY/2), z);
-                        placaTop.castShadow = true; this.adicionarAoGalpao(placaTop, false);
+                        const pxDir = isFachada ? x + (larguraPainel/2) - (margemX/2) : x;
+                        const pzDir = !isFachada ? z + (larguraPainel/2) - (margemX/2) : z;
+                        criarPlaca(margemX, this.ALTURA_PLACA, pxDir, altY, pzDir, pMat);
 
-                        const matBot = this.aplicarEscalaMaterial('parede', largJanela/3, margemY/3);
-                        const placaBot = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela - gap : espessura, margemY - gap, !isFachada ? largJanela - gap : espessura), matBot);
-                        placaBot.position.set(x, altY - (this.ALTURA_PLACA/2) + (margemY/2), z);
-                        placaBot.castShadow = true; this.adicionarAoGalpao(placaBot, false);
+                        const pyTop = altY + (this.ALTURA_PLACA/2) - (margemY/2);
+                        criarPlaca(largJanela, margemY, x, pyTop, z, pMat);
 
-                        const vidro = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela : espessura/2, altVidro, !isFachada ? largJanela : espessura/2), this.materiais.vidro); 
-                        vidro.position.set(x, altY, z); 
-                        this.adicionarAoGalpao(vidro, false);
+                        const pyBot = altY - (this.ALTURA_PLACA/2) + (margemY/2);
+                        criarPlaca(largJanela, margemY, x, pyBot, z, pMat);
+
+                        criarPlaca(largJanela, altVidro, x, altY, z, this.materiais.vidro, true);
                     } else {
-                        const placa = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? larguraPainel - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? larguraPainel - gap : espessura), pMat); 
-                        placa.position.set(x, altY, z); 
-                        placa.castShadow = true; 
-                        this.adicionarAoGalpao(placa, false);
+                        criarPlaca(larguraPainel, this.ALTURA_PLACA, x, altY, z, pMat);
                     }
                 }
             },
@@ -496,10 +514,10 @@
                 requestAnimationFrame(() => this.loopAnimacao());
                 this.controls.update();
                 
-                // LÓGICA ANTI-TREMOR: Trava a matemática antes de tentar calcular micro frações
+                // Trava matemática de segurança: impede micro-oscilações que causam tremor na placa de vídeo
                 const lerp = (start, end, factor) => {
                     const result = start + (end - start) * factor;
-                    return Math.abs(end - result) < 0.001 ? end : result;
+                    return Math.abs(end - result) < 0.005 ? end : result;
                 };
 
                 this.elementosAnimados.forEach(el => {
@@ -525,11 +543,12 @@
             atualizarSimulacao: function() {
                 const frente = parseFloat(document.getElementById('frente').value);
                 const comprimento = parseFloat(document.getElementById('comprimento').value);
-                const tipoPortao = document.getElementById('tipoPortao').value;
                 if(isNaN(frente) || isNaN(comprimento) || frente < 5 || comprimento < 5) return;
 
                 const area = frente * comprimento;
                 let custoTotal = area * this.CUSTO_BASE_M2;
+                
+                const tipoPortao = document.getElementById('tipoPortao').value;
                 if (tipoPortao === 'correr') custoTotal += 2500;
                 else if (tipoPortao === 'duas_folhas') custoTotal += 4500;
 
@@ -552,4 +571,3 @@
     </script>
 </body>
 </html>
-
