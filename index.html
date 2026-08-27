@@ -107,11 +107,11 @@
         <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
             <div id="canvas-container" class="w-full h-full"></div>
             
-            <!-- TELA DE CARREGAMENTO INTELIGENTE -->
             <div id="loading-screen" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-brand-600 mb-4"></div>
                 <h3 class="text-lg font-bold text-brand-900 mb-1">Carregando Estúdio 3D</h3>
                 <p class="text-sm text-gray-500 font-medium">Baixando texturas: <span id="loading-progress">0%</span></p>
+                <p id="loading-error" class="text-xs text-red-500 mt-4 hidden">Aviso: Alguma textura falhou. Verifique nomes.</p>
             </div>
         </div>
 
@@ -139,16 +139,18 @@
                     document.getElementById('loading-progress').innerText = progresso + '%';
                 };
                 
+                // Só constrói a geometria DEPOIS que todas as texturas chegarem (Evita o bloquete cinza/preto)
                 THREE.DefaultLoadingManager.onLoad = () => {
                     document.getElementById('loading-screen').classList.add('opacity-0');
                     setTimeout(() => {
                         document.getElementById('loading-screen').classList.add('hidden');
-                        this.atualizarSimulacao();
+                        this.atualizarSimulacao(); 
                     }, 500);
                 };
 
                 THREE.DefaultLoadingManager.onError = (url) => {
-                    console.error('Erro ao baixar textura (verifique nome/caminho):', url);
+                    console.error('Falha ao carregar:', url);
+                    document.getElementById('loading-error').classList.remove('hidden');
                 };
             },
 
@@ -166,7 +168,7 @@
                     [map, normal, rough].forEach(tex => {
                         tex.wrapS = THREE.RepeatWrapping;
                         tex.wrapT = THREE.RepeatWrapping;
-                        tex.anisotropy = 16;
+                        tex.anisotropy = 4; // REDUZIDO DE 16 PARA 4: Deixa o 3D imensamente mais leve
                     });
 
                     this.materiais[nomeMaterial] = new THREE.MeshStandardMaterial({
@@ -176,18 +178,14 @@
                     });
                 };
 
-                // HDRI REMOVIDO PARA DEIXAR O SITE MAIS LEVE
-                // O céu agora é apenas uma cor sólida controlada na função configurarCena()
-
-                // Mapeamento EXATO para ler a pasta do GitHub
+                // HDRI (Céu) REMOVIDO PARA LEVEZA TOTAL!
+                
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
-                
-                // Reduzimos o metalness para 0.1 devido à remoção do Céu (que servia de reflexo)
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.1 });
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.1 });
                 
-                // MUDANÇA PARA O BLOQUETE:
+                // Mapeamento exato do bloquete
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.1, metalness: 0.8 });
@@ -196,8 +194,9 @@
             configurarCena: function() {
                 const container = document.getElementById('canvas-container');
                 this.scene = new THREE.Scene();
-                // Fundo de cor sólida (Céu claro e leve)
-                this.scene.background = new THREE.Color('#dbeafe'); 
+                
+                // CÉU MATEMÁTICO: Cor azul sólida e super leve
+                this.scene.background = new THREE.Color('#8abde3'); 
                 
                 this.camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 1000);
                 this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -214,26 +213,27 @@
                 this.controls.dampingFactor = 0.05;
                 this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
 
-                // LUZES AUMENTADAS: Compensam a falta da imagem HDRI do céu
-                const hemiLight = new THREE.HemisphereLight('#ffffff', '#a8b0aa', 0.8);
+                // ILUMINAÇÃO NATURAL SEM HDRI
+                const hemiLight = new THREE.HemisphereLight('#dbeafe', '#5b8a5b', 0.8);
                 this.scene.add(hemiLight);
 
-                const sunLight = new THREE.DirectionalLight('#fff5e6', 1.5); 
+                const sunLight = new THREE.DirectionalLight('#fffaed', 1.5); 
                 sunLight.position.set(-60, 50, 60); 
                 sunLight.castShadow = true;
-                sunLight.shadow.mapSize.width = 4096; sunLight.shadow.mapSize.height = 4096;
+                sunLight.shadow.mapSize.width = 2048; // REDUZIDO DE 4096: Corta o peso das sombras pela metade
+                sunLight.shadow.mapSize.height = 2048;
                 sunLight.shadow.camera.near = 0.5; sunLight.shadow.camera.far = 300;
                 sunLight.shadow.bias = -0.0005; 
                 this.scene.add(sunLight);
 
-                // Chão base de segurança (cor sólida)
-                const groundGeom = new THREE.PlaneGeometry(10000, 10000);
-                const groundMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 1.0 });
-                const ground = new THREE.Mesh(groundGeom, groundMat);
-                ground.rotation.x = -Math.PI / 2;
-                ground.position.y = -0.05; 
-                ground.receiveShadow = true;
-                this.scene.add(ground);
+                // O NOVO GRAMADO INFINITO VERDE
+                const gramadoGeom = new THREE.PlaneGeometry(2000, 2000);
+                const gramadoMat = new THREE.MeshStandardMaterial({ color: '#5b8a5b', roughness: 1.0 }); // Cor de grama natural
+                const gramado = new THREE.Mesh(gramadoGeom, gramadoMat);
+                gramado.rotation.x = -Math.PI / 2;
+                gramado.position.y = -0.02; // Levemente abaixo do bloquete para não dar conflito
+                gramado.receiveShadow = true;
+                this.scene.add(gramado);
 
                 this.galpaoGroup = new THREE.Group();
                 this.scene.add(this.galpaoGroup);
@@ -263,13 +263,15 @@
 
             construirAmbiente: function(frente, comprimento) {
                 this.ambienteGroup.clear();
+                
+                // Pátio de Bloquetes
                 const profEstacionamento = 15;
                 const patioGeom = new THREE.PlaneGeometry(frente + 10, comprimento + profEstacionamento);
                 
-                const clonePatioMat = this.aplicarEscalaMaterial(this.materiais.patio, (frente+10)/5, (comprimento+profEstacionamento)/5);
+                const clonePatioMat = this.aplicarEscalaMaterial(this.materiais.patio, (frente+10)/3, (comprimento+profEstacionamento)/3);
                 const patio = new THREE.Mesh(patioGeom, clonePatioMat);
                 patio.rotation.x = -Math.PI / 2;
-                patio.position.set(0, -0.01, profEstacionamento / 3);
+                patio.position.set(0, 0, profEstacionamento / 3);
                 patio.receiveShadow = true;
                 this.ambienteGroup.add(patio);
             },
