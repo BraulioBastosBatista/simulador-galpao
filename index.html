@@ -180,16 +180,11 @@
                 
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
-                
-                // Portão escuro
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { color: '#374151', metalness: 0.1 });
-                // Telhado escuro (usado também no oitão)
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { color: '#374151', metalness: 0.1 });
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#101314', roughness: 0.1, metalness: 0.9 });
-                
-                // Material do rejunte (Cimento escuro nas frestas)
                 this.materiais.rejunte = new THREE.MeshStandardMaterial({ color: '#374151', roughness: 1.0 });
             },
 
@@ -360,7 +355,6 @@
                             const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1); 
                             
                             if (tipoPortao === 'correr') {
-                                // Portão reduzido em largura e altura para não raspar no chão, no trilho ou nas laterais
                                 const pMat = this.aplicarEscalaMaterial('porta', tamPainel/2, altPorta/2);
                                 const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel - 0.04, altPorta - 0.02, 0.1), pMat);
                                 porta.position.set(xCentro, (altPorta - 0.02)/2, (comprimento/2) + 0.18); 
@@ -371,22 +365,28 @@
                                 this.adicionarAoGalpao(porta, true);
 
                             } else if (tipoPortao === 'duas_folhas') {
-                                const largFolha = (tamPainel - 0.04) / 2; // Desconto de 4cm para não raspar no pilar
+                                // LÓGICA ANTI-TREMOR: Folga lateral (0.05) para afastar do pilar de concreto
+                                const folgaLateral = 0.05; 
+                                const largFolha = (tamPainel - (folgaLateral * 2)) / 2;
                                 const pMat = this.aplicarEscalaMaterial('porta', largFolha/2, altPorta/2);
                                 
                                 const hingeEsq = new THREE.Group(); 
-                                hingeEsq.position.set(xCentro - tamPainel/2 + 0.02, 0, comprimento/2 + 0.15); // Recuo de 2cm do pilar
+                                // Posiciona a dobradiça afastada do pilar e projetada para fora em Z (+0.18)
+                                hingeEsq.position.set(xCentro - tamPainel/2 + folgaLateral, 0, comprimento/2 + 0.18);
                                 
-                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta - 0.02, 0.1), pMat); 
-                                folhaEsq.position.set(largFolha/2, (altPorta - 0.02)/2, 0); 
+                                // Folha reduzida levemente em altura e na largura
+                                const hFolha = altPorta - 0.04;
+                                const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, hFolha, 0.08), pMat); 
+                                folhaEsq.position.set(largFolha/2, hFolha/2, 0); 
                                 folhaEsq.castShadow = true; 
                                 hingeEsq.add(folhaEsq);
                                 
-                                // LINHA PRETA DE VEDAÇÃO CENTRAL
+                                // LINHA PRETA DE VEDAÇÃO CENTRAL (Perfil U)
                                 const matLinhaDivisoria = new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 });
-                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.08, altPorta - 0.02, 0.16), matLinhaDivisoria);
-                                // Posicionada exatamente na ponta da folha esquerda e mais grossa para garantir visão perfeita
-                                linhaDivisoria.position.set(largFolha, (altPorta - 0.02)/2, 0); 
+                                const hLinha = hFolha + 0.02; // Pouca coisa mais alta que a folha para evitar choque de texturas
+                                const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.06, hLinha, 0.14), matLinhaDivisoria);
+                                // Adicionada no canto direito da folha esquerda
+                                linhaDivisoria.position.set(largFolha, hLinha/2, 0); 
                                 linhaDivisoria.castShadow = true;
                                 hingeEsq.add(linhaDivisoria);
 
@@ -397,10 +397,11 @@
                                 this.elementosAnimados.push(hingeEsq); 
 
                                 const hingeDir = new THREE.Group(); 
-                                hingeDir.position.set(xCentro + tamPainel/2 - 0.02, 0, comprimento/2 + 0.15);
+                                hingeDir.position.set(xCentro + tamPainel/2 - folgaLateral, 0, comprimento/2 + 0.18);
                                 
-                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha, altPorta - 0.02, 0.1), pMat); 
-                                folhaDir.position.set(-largFolha/2, (altPorta - 0.02)/2, 0); 
+                                // Folha direita recuada em 1cm (largFolha - 0.01) para deixar espaço limpo para a borracha/linha preta
+                                const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.01, hFolha, 0.08), pMat); 
+                                folhaDir.position.set(-(largFolha - 0.01)/2, hFolha/2, 0); 
                                 folhaDir.castShadow = true; 
                                 hingeDir.add(folhaDir);
                                 
@@ -430,7 +431,6 @@
                 const oitaoShape = new THREE.Shape(); oitaoShape.moveTo(-frente/2, 0); oitaoShape.lineTo(0, alturaCumeeira); oitaoShape.lineTo(frente/2, 0);
                 const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
                 
-                // OITÃO (Parte da frente e fundo) COM MATERIAL DO TELHADO
                 const oMat = this.aplicarEscalaMaterial('telhado', frente/4, 1);
                 const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente, false);
                 const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo, false);
@@ -454,7 +454,6 @@
             gerarPlacas: function(x, z, larguraPainel, numPlacas, espessura, isLateral, isFachada = false) {
                 const gap = 0.03; 
 
-                // Função auxiliar que cria a placa de concreto e já adiciona o cimento escuro no fundo
                 const criarPlaca = (w, h, px, py, pz, mat, isVidro = false) => {
                     const wPlaca = isFachada ? w - gap : espessura;
                     const hPlaca = isVidro ? h : h - gap;
@@ -465,7 +464,6 @@
                     if (!isVidro) mesh.castShadow = true;
                     this.adicionarAoGalpao(mesh, false);
 
-                    // PREENCHIMENTO DE CIMENTO ENTRE AS PLACAS
                     if (!isVidro) {
                         const wRejunte = isFachada ? w : espessura - 0.06;
                         const dRejunte = !isFachada ? w : espessura - 0.06;
@@ -514,7 +512,6 @@
                 requestAnimationFrame(() => this.loopAnimacao());
                 this.controls.update();
                 
-                // Trava matemática de segurança: impede micro-oscilações que causam tremor na placa de vídeo
                 const lerp = (start, end, factor) => {
                     const result = start + (end - start) * factor;
                     return Math.abs(end - result) < 0.005 ? end : result;
