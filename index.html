@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Galpões 3D - Leve e Otimizado</title>
+    <title>Simulador de Galpões 3D - Ultra Otimizado</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -139,7 +139,6 @@
                     document.getElementById('loading-progress').innerText = progresso + '%';
                 };
                 
-                // Só constrói a geometria DEPOIS que todas as texturas chegarem (Evita o bloquete cinza/preto)
                 THREE.DefaultLoadingManager.onLoad = () => {
                     document.getElementById('loading-screen').classList.add('opacity-0');
                     setTimeout(() => {
@@ -168,7 +167,7 @@
                     [map, normal, rough].forEach(tex => {
                         tex.wrapS = THREE.RepeatWrapping;
                         tex.wrapT = THREE.RepeatWrapping;
-                        tex.anisotropy = 4; // REDUZIDO DE 16 PARA 4: Deixa o 3D imensamente mais leve
+                        tex.anisotropy = 2; // REDUZIDO: Alivia enormemente a GPU
                     });
 
                     this.materiais[nomeMaterial] = new THREE.MeshStandardMaterial({
@@ -177,15 +176,11 @@
                         ...extras
                     });
                 };
-
-                // HDRI (Céu) REMOVIDO PARA LEVEZA TOTAL!
                 
                 carregarMaterial('parede', 'Parede_Color.jpg', 'Parede_Normal.jpg', 'Parede_Roughness.jpg');
                 carregarMaterial('pilar', 'Pilar_Color.jpg', 'Pilar_Normal.jpg', 'Pilar_Roughness.jpg');
                 carregarMaterial('porta', 'Portao_Color.jpg', 'Portao_Normal.jpg', 'Portao_Roughness.jpg', { metalness: 0.1 });
                 carregarMaterial('telhado', 'metal_color.jpg', 'metal_normal.jpg', 'metal_roughness.jpg', { metalness: 0.1 });
-                
-                // Mapeamento exato do bloquete
                 carregarMaterial('patio', 'Bloquete_Color.jpg', 'Bloquete_Normal.jpg', 'Bloquete_Roughness.jpg');
 
                 this.materiais.vidro = new THREE.MeshStandardMaterial({ color: '#16191c', roughness: 0.1, metalness: 0.8 });
@@ -194,15 +189,17 @@
             configurarCena: function() {
                 const container = document.getElementById('canvas-container');
                 this.scene = new THREE.Scene();
-                
-                // CÉU MATEMÁTICO: Cor azul sólida e super leve
                 this.scene.background = new THREE.Color('#8abde3'); 
                 
                 this.camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 1000);
-                this.renderer = new THREE.WebGLRenderer({ antialias: true });
+                
+                // OTIMIZAÇÃO CRÍTICA DE GPU: Limita a resolução nativa em telas retina/4K
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
                 this.renderer.setSize(container.clientWidth, container.clientHeight);
+                
                 this.renderer.shadowMap.enabled = true;
-                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+                this.renderer.shadowMap.type = THREE.PCFShadowMap; // OTIMIZAÇÃO: Trocado de PCFSoftShadowMap (muito pesado) para PCFShadowMap
                 this.renderer.outputEncoding = THREE.sRGBEncoding;
                 this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
                 this.renderer.toneMappingExposure = 1.0; 
@@ -213,25 +210,25 @@
                 this.controls.dampingFactor = 0.05;
                 this.controls.maxPolarAngle = Math.PI / 2 - 0.01; 
 
-                // ILUMINAÇÃO NATURAL SEM HDRI
                 const hemiLight = new THREE.HemisphereLight('#dbeafe', '#5b8a5b', 0.8);
                 this.scene.add(hemiLight);
 
                 const sunLight = new THREE.DirectionalLight('#fffaed', 1.5); 
                 sunLight.position.set(-60, 50, 60); 
                 sunLight.castShadow = true;
-                sunLight.shadow.mapSize.width = 2048; // REDUZIDO DE 4096: Corta o peso das sombras pela metade
-                sunLight.shadow.mapSize.height = 2048;
+                
+                // OTIMIZAÇÃO DE SOMBRA: Reduzido de 4096 para 1024. Libera muita RAM da placa de vídeo.
+                sunLight.shadow.mapSize.width = 1024; 
+                sunLight.shadow.mapSize.height = 1024;
                 sunLight.shadow.camera.near = 0.5; sunLight.shadow.camera.far = 300;
                 sunLight.shadow.bias = -0.0005; 
                 this.scene.add(sunLight);
 
-                // O NOVO GRAMADO INFINITO VERDE
                 const gramadoGeom = new THREE.PlaneGeometry(2000, 2000);
-                const gramadoMat = new THREE.MeshStandardMaterial({ color: '#5b8a5b', roughness: 1.0 }); // Cor de grama natural
+                const gramadoMat = new THREE.MeshStandardMaterial({ color: '#5b8a5b', roughness: 1.0 }); 
                 const gramado = new THREE.Mesh(gramadoGeom, gramadoMat);
                 gramado.rotation.x = -Math.PI / 2;
-                gramado.position.y = -0.02; // Levemente abaixo do bloquete para não dar conflito
+                gramado.position.y = -0.02; 
                 gramado.receiveShadow = true;
                 this.scene.add(gramado);
 
@@ -254,17 +251,16 @@
                 return clone;
             },
 
-            adicionarAoGalpao: function(mesh) {
-                mesh.scale.set(0.01, 0.01, 0.01); 
-                mesh.userData.targetScale = new THREE.Vector3(1, 1, 1); 
-                this.elementosAnimados.push(mesh);
+            // OTIMIZAÇÃO CRÍTICA DE CPU: O parâmetro "animar" impede que objetos estáticos saturem o loop 60fps
+            adicionarAoGalpao: function(mesh, animar = false) {
                 this.galpaoGroup.add(mesh);
+                if (animar) {
+                    this.elementosAnimados.push(mesh);
+                }
             },
 
             construirAmbiente: function(frente, comprimento) {
                 this.ambienteGroup.clear();
-                
-                // Pátio de Bloquetes
                 const profEstacionamento = 15;
                 const patioGeom = new THREE.PlaneGeometry(frente + 10, comprimento + profEstacionamento);
                 
@@ -301,6 +297,8 @@
 
                 const pisoInterno = new THREE.Mesh(new THREE.PlaneGeometry(frente - 0.5, comprimento - 0.5), new THREE.MeshStandardMaterial({color: '#282b2e'}));
                 pisoInterno.rotation.x = -Math.PI / 2; pisoInterno.position.y = 0.02;
+                // Piso interno não precisa lançar sombra, otimização extra:
+                pisoInterno.receiveShadow = true;
                 this.galpaoGroup.add(pisoInterno); 
 
                 const _this = this;
@@ -309,7 +307,7 @@
                     const pilar = new THREE.Mesh(new THREE.BoxGeometry(largPilar, alturaReal, profPilar), mat);
                     pilar.position.set(x, alturaReal/2, z);
                     pilar.castShadow = true; pilar.receiveShadow = true;
-                    _this.adicionarAoGalpao(pilar);
+                    _this.adicionarAoGalpao(pilar, false); // false = não processar no loop de animação
                 }
 
                 for (let i = 0; i <= numVaosZ; i++) {
@@ -329,10 +327,10 @@
                     if (i > 0 && i < numVaosX) {
                         const mat = this.aplicarEscalaMaterial(this.materiais.pilar, profPilar, alturaReal/2);
                         const pFundo = new THREE.Mesh(new THREE.BoxGeometry(profPilar, alturaReal, largPilar), mat);
-                        pFundo.position.set(posX, alturaReal/2, -comprimento/2); pFundo.castShadow = true; pFundo.receiveShadow = true; this.adicionarAoGalpao(pFundo);
+                        pFundo.position.set(posX, alturaReal/2, -comprimento/2); pFundo.castShadow = true; pFundo.receiveShadow = true; this.adicionarAoGalpao(pFundo, false);
 
                         const pFrente = new THREE.Mesh(new THREE.BoxGeometry(profPilar, alturaReal, largPilar), mat);
-                        pFrente.position.set(posX, alturaReal/2, comprimento/2); pFrente.castShadow = true; pFrente.receiveShadow = true; this.adicionarAoGalpao(pFrente);
+                        pFrente.position.set(posX, alturaReal/2, comprimento/2); pFrente.castShadow = true; pFrente.receiveShadow = true; this.adicionarAoGalpao(pFrente, false);
                     }
                     
                     if (i < numVaosX) {
@@ -349,14 +347,14 @@
                                     const lamina = new THREE.Mesh(new THREE.BoxGeometry(tamPainel, 0.18, 0.05), pMat);
                                     lamina.position.set(xCentro, altPorta - j, (comprimento/2) + 0.15); 
                                     lamina.castShadow = true; lamina.userData.animAbertoY = alturaReal + 0.5; lamina.userData.animFechadoY = altPorta - j; lamina.userData.isPortaEnrolar = true;
-                                    this.adicionarAoGalpao(lamina);
+                                    this.adicionarAoGalpao(lamina, true); // true = porta precisa animar
                                 }
                             } else if (tipoPortao === 'correr') {
                                 const pMat = this.aplicarEscalaMaterial(this.materiais.porta, tamPainel/2, altPorta/2);
                                 const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 1.05, altPorta, 0.1), pMat);
                                 porta.position.set(xCentro, altPorta/2, (comprimento/2) + 0.18); 
                                 porta.castShadow = true; porta.userData.animAbertoX = xCentro - (tamPainel * 0.95); porta.userData.animFechadoX = xCentro; porta.userData.isPortaCorrer = true;
-                                this.adicionarAoGalpao(porta);
+                                this.adicionarAoGalpao(porta, true);
                             } else if (tipoPortao === 'duas_folhas') {
                                 const largFolha = tamPainel / 2;
                                 const pMat = this.aplicarEscalaMaterial(this.materiais.porta, largFolha/2, altPorta/2);
@@ -371,13 +369,13 @@
                             }
                             
                             const trilho = new THREE.Mesh(new THREE.BoxGeometry(tamPainel * 2, 0.15, 0.25), new THREE.MeshStandardMaterial({color: '#333'}));
-                            trilho.position.set(xCentro, altPorta + 0.075, (comprimento/2) + 0.15); trilho.castShadow = true; this.adicionarAoGalpao(trilho);
+                            trilho.position.set(xCentro, altPorta + 0.075, (comprimento/2) + 0.15); trilho.castShadow = true; this.adicionarAoGalpao(trilho, false);
 
                             const altRestante = alturaReal - altPorta;
                             if(altRestante > 0) {
                                 const pMat = this.aplicarEscalaMaterial(this.materiais.parede, tamPainel/3, altRestante/3);
                                 const fechamento = new THREE.Mesh(new THREE.BoxGeometry(tamPainel - 0.03, altRestante - 0.03, espessuraParede), pMat);
-                                fechamento.position.set(xCentro, altPorta + (altRestante/2), comprimento/2); fechamento.castShadow = true; this.adicionarAoGalpao(fechamento);
+                                fechamento.position.set(xCentro, altPorta + (altRestante/2), comprimento/2); fechamento.castShadow = true; this.adicionarAoGalpao(fechamento, false);
                             }
                         } else {
                             this.gerarPlacas(xCentro, comprimento/2, tamPainel, numPlacasAltura, espessuraParede, false, true);
@@ -390,16 +388,16 @@
                 const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
                 
                 const oMat = this.aplicarEscalaMaterial(this.materiais.parede, frente/4, 1);
-                const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente);
-                const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo);
+                const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente, false);
+                const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo, false);
 
                 const beiral = 0.6; const largRampa = (frente / 2) + beiral; const altRampa = largRampa * inclinacao; const compRampa = Math.sqrt(Math.pow(largRampa, 2) + Math.pow(altRampa, 2)); const anguloTelhado = Math.atan(inclinacao);
 
                 const tMat = this.aplicarEscalaMaterial(this.materiais.telhado, comprimento/3, compRampa/3);
                 if(tMat.map) tMat.map.rotation = Math.PI / 2; if(tMat.normalMap) tMat.normalMap.rotation = Math.PI / 2; if(tMat.roughnessMap) tMat.roughnessMap.rotation = Math.PI / 2;
 
-                const telhaDir = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaDir.position.set((largRampa/2) - beiral, alturaReal + (altRampa/2) + 0.05, 0); telhaDir.rotation.z = -anguloTelhado; telhaDir.castShadow = true; this.adicionarAoGalpao(telhaDir);
-                const telhaEsq = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaEsq.position.set(-((largRampa/2) - beiral), alturaReal + (altRampa/2) + 0.05, 0); telhaEsq.rotation.z = anguloTelhado; telhaEsq.castShadow = true; this.adicionarAoGalpao(telhaEsq);
+                const telhaDir = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaDir.position.set((largRampa/2) - beiral, alturaReal + (altRampa/2) + 0.05, 0); telhaDir.rotation.z = -anguloTelhado; telhaDir.castShadow = true; this.adicionarAoGalpao(telhaDir, false);
+                const telhaEsq = new THREE.Mesh(new THREE.BoxGeometry(compRampa, 0.1, comprimento + beiral*2), tMat); telhaEsq.position.set(-((largRampa/2) - beiral), alturaReal + (altRampa/2) + 0.05, 0); telhaEsq.rotation.z = anguloTelhado; telhaEsq.castShadow = true; this.adicionarAoGalpao(telhaEsq, false);
 
                 this.construirAmbiente(frente, comprimento);
 
@@ -418,27 +416,24 @@
 
                     if (temJanela) {
                         const largJanela = larguraPainel * 0.6; const margemX = (larguraPainel - largJanela) / 2;
-                        const placaEsq = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaEsq.position.set(isFachada ? x - (larguraPainel/2) + (margemX/2) : x, altY, !isFachada ? z - (larguraPainel/2) + (margemX/2) : z); placaEsq.castShadow = true; this.adicionarAoGalpao(placaEsq);
-                        const placaDir = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaDir.position.set(isFachada ? x + (larguraPainel/2) - (margemX/2) : x, altY, !isFachada ? z + (larguraPainel/2) - (margemX/2) : z); placaDir.castShadow = true; this.adicionarAoGalpao(placaDir);
-                        const vidro = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela : espessura/2, this.ALTURA_PLACA * 0.9, !isFachada ? largJanela : espessura/2), this.materiais.vidro); vidro.position.set(x, altY, z); this.adicionarAoGalpao(vidro);
+                        const placaEsq = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaEsq.position.set(isFachada ? x - (larguraPainel/2) + (margemX/2) : x, altY, !isFachada ? z - (larguraPainel/2) + (margemX/2) : z); placaEsq.castShadow = true; this.adicionarAoGalpao(placaEsq, false);
+                        const placaDir = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? margemX - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? margemX - gap : espessura), pMat); placaDir.position.set(isFachada ? x + (larguraPainel/2) - (margemX/2) : x, altY, !isFachada ? z + (larguraPainel/2) - (margemX/2) : z); placaDir.castShadow = true; this.adicionarAoGalpao(placaDir, false);
+                        const vidro = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? largJanela : espessura/2, this.ALTURA_PLACA * 0.9, !isFachada ? largJanela : espessura/2), this.materiais.vidro); vidro.position.set(x, altY, z); this.adicionarAoGalpao(vidro, false);
                     } else {
-                        const placa = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? larguraPainel - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? larguraPainel - gap : espessura), pMat); placa.position.set(x, altY, z); placa.castShadow = true; this.adicionarAoGalpao(placa);
+                        const placa = new THREE.Mesh(new THREE.BoxGeometry(isFachada ? larguraPainel - gap : espessura, this.ALTURA_PLACA - gap, !isFachada ? larguraPainel - gap : espessura), pMat); placa.position.set(x, altY, z); placa.castShadow = true; this.adicionarAoGalpao(placa, false);
                     }
                 }
             },
 
             togglePortao: function() { this.portaoAberto = !this.portaoAberto; },
 
+            // OTIMIZAÇÃO DE CPU: Loop agora processa apenas as portas, ignorando centenas de paredes estáticas
             loopAnimacao: function() {
                 requestAnimationFrame(() => this.loopAnimacao());
                 this.controls.update();
                 const lerp = (start, end, factor) => start + (end - start) * factor;
 
                 this.elementosAnimados.forEach(el => {
-                    if (el.userData.targetScale) {
-                        el.scale.x = lerp(el.scale.x, el.userData.targetScale.x, 0.1); el.scale.y = lerp(el.scale.y, el.userData.targetScale.y, 0.1); el.scale.z = lerp(el.scale.z, el.userData.targetScale.z, 0.1);
-                        if (Math.abs(el.scale.x - 1) < 0.01) { el.scale.set(1,1,1); delete el.userData.targetScale; }
-                    }
                     if (el.userData.isPortaCorrer) el.position.x = lerp(el.position.x, this.portaoAberto ? el.userData.animAbertoX : el.userData.animFechadoX, 0.08);
                     if (el.userData.isPortaGiro) el.rotation.y = lerp(el.rotation.y, this.portaoAberto ? el.userData.animAbertoR : el.userData.animFechadoR, 0.08);
                     if (el.userData.isPortaEnrolar) el.position.y = lerp(el.position.y, this.portaoAberto ? el.userData.animAbertoY : el.userData.animFechadoY, 0.1);
