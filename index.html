@@ -586,15 +586,15 @@
                 const beiralFrontalFundo = 0.8; 
                 const beiralLateral = 0.8;
 
-                // O Oitão (Gable) volta a ser de concreto para se mesclar às paredes
                 const oitaoShape = new THREE.Shape(); oitaoShape.moveTo(-frente/2, 0); oitaoShape.lineTo(0, alturaCumeeira); oitaoShape.lineTo(frente/2, 0);
                 const oitaoGeom = new THREE.ExtrudeGeometry(oitaoShape, { depth: espessuraParede, bevelEnabled: false }); oitaoGeom.translate(0, 0, -espessuraParede/2);
                 
-                const oMat = this.aplicarEscalaMaterial('parede', frente/4, 1);
+                // MUDANÇA: Oitão recebe textura do telhado metálico
+                const oMat = this.aplicarEscalaMaterial('telhado', frente/4, 1);
+                
                 const oitaoFrente = new THREE.Mesh(oitaoGeom, oMat); oitaoFrente.position.set(0, alturaReal, comprimento/2); oitaoFrente.castShadow = true; this.adicionarAoGalpao(oitaoFrente, false);
                 const oitaoFundo = new THREE.Mesh(oitaoGeom, oMat); oitaoFundo.position.set(0, alturaReal, -comprimento/2); oitaoFundo.castShadow = true; this.adicionarAoGalpao(oitaoFundo, false);
 
-                // RECÁLCULO DO TELHADO: Geometria ajustada para repousar exatamente sobre as paredes
                 const largRampa = (frente / 2) + beiralLateral; 
                 const altRampa = largRampa * inclinacao; 
                 const compRampa = Math.sqrt(Math.pow(largRampa, 2) + Math.pow(altRampa, 2)); 
@@ -606,7 +606,6 @@
                 const tMat = this.aplicarEscalaMaterial('telhado', compTelhadoZ/3, compRampa/3);
                 if(tMat.map) tMat.map.rotation = Math.PI / 2; if(tMat.normalMap) tMat.normalMap.rotation = Math.PI / 2; if(tMat.roughnessMap) tMat.roughnessMap.rotation = Math.PI / 2;
 
-                // MULTIMATERIAL DO TELHADO: Elimina a borda esticada (concreto). Mantém as bordas (rufo) sólidas
                 const matBordaTelhado = this.materiais.bordaTelhado;
                 const roofMaterials = [matBordaTelhado, matBordaTelhado, tMat, tMat, matBordaTelhado, matBordaTelhado];
 
@@ -622,7 +621,6 @@
                 telhaEsq.castShadow = true; 
                 this.adicionarAoGalpao(telhaEsq, false);
 
-                // CUMEEIRA (Ridge Cap) para selar perfeitamente a divisão das águas
                 const cumeeira = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.04, compTelhadoZ), matBordaTelhado);
                 cumeeira.position.set(0, alturaReal + alturaCumeeira + 0.08, 0);
                 cumeeira.castShadow = true;
