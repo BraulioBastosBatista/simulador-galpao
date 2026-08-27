@@ -355,37 +355,34 @@
                             const altPorta = Math.min(this.ALTURA_PLACA * 3.5, alturaReal - 1); 
                             
                             if (tipoPortao === 'correr') {
+                                const sobreposicao = 0.06;
                                 const pMat = this.aplicarEscalaMaterial('porta', tamPainel/2, altPorta/2);
-                                const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel - 0.04, altPorta - 0.02, 0.1), pMat);
+                                const porta = new THREE.Mesh(new THREE.BoxGeometry(tamPainel + sobreposicao, altPorta - 0.02, 0.1), pMat);
                                 porta.position.set(xCentro, (altPorta - 0.02)/2, (comprimento/2) + 0.18); 
                                 porta.castShadow = true; 
-                                porta.userData.animAbertoX = xCentro - (tamPainel - 0.04); 
+                                porta.userData.animAbertoX = xCentro - (tamPainel + sobreposicao); 
                                 porta.userData.animFechadoX = xCentro; 
                                 porta.userData.isPortaCorrer = true;
                                 this.adicionarAoGalpao(porta, true);
 
                             } else if (tipoPortao === 'duas_folhas') {
-                                // LÓGICA ANTI-TREMOR: Folga lateral (0.05) para afastar do pilar de concreto
-                                const folgaLateral = 0.05; 
-                                const largFolha = (tamPainel - (folgaLateral * 2)) / 2;
+                                // SOBREPOSIÇÃO: Em vez de folga, o portão entra 2cm nos pilares para evitar vazamento de luz
+                                const sobreposicao = 0.02; 
+                                const largFolha = (tamPainel + (sobreposicao * 2)) / 2;
                                 const pMat = this.aplicarEscalaMaterial('porta', largFolha/2, altPorta/2);
                                 
                                 const hingeEsq = new THREE.Group(); 
-                                // Posiciona a dobradiça afastada do pilar e projetada para fora em Z (+0.18)
-                                hingeEsq.position.set(xCentro - tamPainel/2 + folgaLateral, 0, comprimento/2 + 0.18);
+                                hingeEsq.position.set(xCentro - tamPainel/2 - sobreposicao, 0, comprimento/2 + 0.18);
                                 
-                                // Folha reduzida levemente em altura e na largura
                                 const hFolha = altPorta - 0.04;
                                 const folhaEsq = new THREE.Mesh(new THREE.BoxGeometry(largFolha, hFolha, 0.08), pMat); 
                                 folhaEsq.position.set(largFolha/2, hFolha/2, 0); 
                                 folhaEsq.castShadow = true; 
                                 hingeEsq.add(folhaEsq);
                                 
-                                // LINHA PRETA DE VEDAÇÃO CENTRAL (Perfil U)
                                 const matLinhaDivisoria = new THREE.MeshStandardMaterial({ color: '#111111', roughness: 0.9 });
-                                const hLinha = hFolha + 0.02; // Pouca coisa mais alta que a folha para evitar choque de texturas
+                                const hLinha = hFolha + 0.02; 
                                 const linhaDivisoria = new THREE.Mesh(new THREE.BoxGeometry(0.06, hLinha, 0.14), matLinhaDivisoria);
-                                // Adicionada no canto direito da folha esquerda
                                 linhaDivisoria.position.set(largFolha, hLinha/2, 0); 
                                 linhaDivisoria.castShadow = true;
                                 hingeEsq.add(linhaDivisoria);
@@ -397,9 +394,8 @@
                                 this.elementosAnimados.push(hingeEsq); 
 
                                 const hingeDir = new THREE.Group(); 
-                                hingeDir.position.set(xCentro + tamPainel/2 - folgaLateral, 0, comprimento/2 + 0.18);
+                                hingeDir.position.set(xCentro + tamPainel/2 + sobreposicao, 0, comprimento/2 + 0.18);
                                 
-                                // Folha direita recuada em 1cm (largFolha - 0.01) para deixar espaço limpo para a borracha/linha preta
                                 const folhaDir = new THREE.Mesh(new THREE.BoxGeometry(largFolha - 0.01, hFolha, 0.08), pMat); 
                                 folhaDir.position.set(-(largFolha - 0.01)/2, hFolha/2, 0); 
                                 folhaDir.castShadow = true; 
