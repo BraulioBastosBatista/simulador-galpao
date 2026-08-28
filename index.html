@@ -15,13 +15,31 @@
         }
     </script>
     <style>
-        /* Força a barra de rolagem vertical no lado direito da tela */
         body { overflow-y: scroll; } 
         #canvas-container { width: 100%; height: 100%; cursor: grab; outline: none; }
         #canvas-container:active { cursor: grabbing; }
+        
         input[type="color"] { appearance: none; -webkit-appearance: none; border: none; width: 2rem; height: 2rem; border-radius: 9999px; cursor: pointer; padding: 0; }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: 2px solid #e5e7eb; border-radius: 9999px; }
+
+        /* CUSTOMIZAÇÃO DAS BARRAS DE ROLAGEM (Mais Grossas e Elegantes) */
+        ::-webkit-scrollbar {
+            width: 20px;  /* Barra Vertical mais grossa */
+            height: 20px; /* Barra Horizontal mais grossa */
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0; 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8; 
+            border-radius: 10px;
+            border: 4px solid #e2e8f0; /* Borda para dar um efeito de pílula flutuante */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
@@ -104,16 +122,20 @@
         </div>
 
         <!-- VISUALIZAÇÃO 3D -->
-        <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative h-[50vh] min-h-[400px] lg:h-[700px] lg:min-h-0">
+        <div class="w-full lg:w-2/3 bg-white rounded-xl shadow-sm border border-gray-200 relative h-[50vh] min-h-[400px] lg:h-[700px] lg:min-h-0 overflow-hidden flex flex-col">
             
             <!-- BOTÃO FLUTUANTE DO PORTÃO -->
             <button onclick="App.togglePortao()" class="absolute top-4 right-4 z-10 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-bold shadow-md transition-all text-sm border-2 border-white/20">
                 Abrir / Fechar Portão
             </button>
 
-            <div id="canvas-container" class="w-full h-full"></div>
+            <!-- Wrapper para forçar a barra de rolagem horizontal -->
+            <div class="w-full h-full overflow-x-auto overflow-y-hidden relative" id="scroll-wrapper">
+                <!-- O desenho nunca ficará menor que 1000px. Se a tela for menor, aparece a barra horizontal -->
+                <div id="canvas-container" style="min-width: 1000px;"></div>
+            </div>
             
-            <div id="loading-screen" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50 transition-opacity duration-500">
+            <div id="loading-screen" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-50 transition-opacity duration-500 pointer-events-none">
                 <div class="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-brand-600 mb-4"></div>
                 <h3 class="text-lg font-bold text-brand-900 mb-1">Carregando Estúdio 3D</h3>
                 <p class="text-sm text-gray-500 font-medium">Baixando texturas: <span id="loading-progress">0%</span></p>
@@ -205,7 +227,7 @@
                 this.camera = new THREE.PerspectiveCamera(38, container.clientWidth / container.clientHeight, 0.1, 1000);
                 
                 this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0)); 
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5)); 
                 this.renderer.setSize(container.clientWidth, container.clientHeight);
                 
                 this.renderer.shadowMap.enabled = true;
@@ -562,6 +584,15 @@
 
             loopAnimacao: function() {
                 requestAnimationFrame(() => this.loopAnimacao());
+                
+                // Pega a largura atual do canvas container (que pode estar rolando)
+                const container = document.getElementById('canvas-container');
+                if (container && this.camera.aspect !== container.clientWidth / container.clientHeight) {
+                    this.camera.aspect = container.clientWidth / container.clientHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+
                 this.controls.update();
                 
                 const lerp = (start, end, factor) => {
@@ -608,10 +639,7 @@
             },
             
             onWindowResize: function() {
-                const container = document.getElementById('canvas-container');
-                this.camera.aspect = container.clientWidth / container.clientHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(container.clientWidth, container.clientHeight);
+                // A redimensionamento agora é tratado continuamente no loop de animação para garantir que o scroll horizontal funcione sem quebrar o WebGL
             }
         };
 
