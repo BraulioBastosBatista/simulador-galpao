@@ -161,11 +161,9 @@
                 this.loopAnimacao();
             },
 
-            // FUNÇÃO QUE CENTRALIZA A BARRA DE ROLAGEM NO CELULAR
             centralizarScroll: function() {
                 const wrapper = document.getElementById('scroll-wrapper');
                 if (wrapper) {
-                    // Calcula a diferença entre o tamanho real (1000px) e o tamanho da tela do celular, depois divide por 2
                     wrapper.scrollLeft = (wrapper.scrollWidth - wrapper.clientWidth) / 2;
                 }
             },
@@ -180,7 +178,6 @@
                     this.atualizarSimulacao();
                     this.renderer.compile(this.scene, this.camera);
                     
-                    // Logo após carregar, arrasta a barra horizontal para o centro
                     this.centralizarScroll();
 
                     document.getElementById('loading-screen').classList.add('opacity-0');
@@ -248,7 +245,8 @@
                 this.renderer.toneMappingExposure = 1.0; 
                 container.appendChild(this.renderer.domElement);
 
-                this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+                // CORREÇÃO: Utilizado THREE.OrbitControls
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
                 this.controls.enableDamping = true;
                 this.controls.dampingFactor = 0.05;
                 this.controls.maxPolarAngle = Math.PI / 2 - 0.02; 
